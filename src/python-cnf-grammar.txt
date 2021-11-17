@@ -1,0 +1,42 @@
+# Ini komentar, sementara hanya bisa komentar di depan, boleh menaruh apa pun setelah # di sini, kecuali panah kanan dan pipa (reserved untuk aturan)
+
+# Statement secara umum
+# Statement: satu barus kode atau sepotong kode diakhiri titik koma, Expression: mengembalikan nilai
+S --> Var EqExpr | Number Number | Blank Expr | Expr Blank | S NextStatement | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
+NextStatement --> Semicolon S | ;
+
+# Statement untuk handle comment, btw aturan bisa dipecah jadi beberapa baris seperti S ini
+S --> S HashSign | S CommentSection | CommentHashMark AllCharacter
+
+# Expression
+Expr --> Number Number | Blank Expr | Expr Blank | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
+EqExpr --> EqualSign Expr | EqualSign Var
+
+# Operasi Matematika
+Expr --> LeftParentheses RExpr | Expr SecondOperand
+RExpr --> Expr RightParentheses
+SecondOperand --> BinaryOperator Expr
+BinaryOperator --> + | - | * | / | % | **
+
+# Variable/identifier (begvar: awal
+Var --> Begvar Midvar | Var Blank | Blank Var | _ | a | b | c | d | e | f | g | h | i | j | k | l | m | n | o | p | q | r | s | t | u | v | w | x | y | z | A | B | C | D | E | F | G | H | I | J | K | L | M | N | O | P | G | R | S | T | U | V | W | X | Y | Z
+Begvar --> _ | a | b | c | d | e | f | g | h | i | j | k | l | m | n | o | p | q | r | s | t | u | v | w | x | y | z | A | B | C | D | E | F | G | H | I | J | K | L | M | N | O | P | G | R | S | T | U | V | W | X | Y | Z
+Midvar --> Midvar Midvar | _ | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | a | b | c | d | e | f | g | h | i | j | k | l | m | n | o | p | q | r | s | t | u | v | w | x | y | z | A | B | C | D | E | F | G | H | I | J | K | L | M | N | O | P | G | R | S | T | U | V | W | X | Y | Z
+
+# Karakter-karakter
+EqualSign --> =
+Semicolon --> ;
+Spasi --> &spasi;
+Newline --> \n
+Blank --> Blank Blank | &spasi; | \t
+LeftParentheses --> (
+RightParentheses --> )
+Number --> Number Number | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
+
+# Comment
+HashSign --> #
+CommentHashMark --> # | Blank HashSign | HashSign Blank
+CommentSection --> CommentHashMark AllCharacter
+
+
+AllCharacter --> AllCharacter AllCharacter | \t | &spasi; | _ | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | a | b | c | d | e | f | g | h | i | j | k | l | m | n | o | p | q | r | s | t | u | v | w | x | y | z | A | B | C | D | E | F | G | H | I | J | K | L | M | N | O | P | G | R | S | T | U | V | W | X | Y | Z | ! | @ | # | $ | % | ^ | & | * | ( | )
