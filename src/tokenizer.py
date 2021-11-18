@@ -73,13 +73,13 @@ class Tokenizer:
                     self.current_token.append(char)
             elif type == Literal.CLOSED_STRING:
                 if char == '"' and self.current_token.value == '""':
-                    self.current_token.append(char_code)
+                    self.current_token.append(char)
                     self.current_token = Token(
                         Literal.STRING_MULTILINE, self.current_token.value)
                     self.current_token.set_data("starts_with", '"')
                     self.current_token.set_data("quotes_trail", 0)
                 elif char == "'" and self.current_token.value == "''":
-                    self.current_token.append(char_code)
+                    self.current_token.append(char)
                     self.current_token = Token(
                         Literal.STRING_MULTILINE, self.current_token.value)
                     self.current_token.set_data("starts_with", "'")
@@ -90,6 +90,8 @@ class Tokenizer:
                     self.push_token()
                     self.push(char)
             elif type == Literal.STRING_MULTILINE:
+                if char == "\n":
+                    char = "\\n"
                 self.current_token.append(char)
                 if char == data["starts_with"]:
                     trail = data["quotes_trail"]
