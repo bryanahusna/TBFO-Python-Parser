@@ -25,7 +25,7 @@ class Tokenizer:
 
     def push(self, char: str):
         char_code = ord(char)
-        if (self.has_token()):
+        if (self.has_current_token()):
             type = self.current_token.type
             data = self.current_token.data
             if type == Literal.NAME:
@@ -40,9 +40,15 @@ class Tokenizer:
             elif type == Literal.NUMBER:
                 if char.isnumeric():
                     self.current_token.append(char)
+                    if data["negative"] and not data["has_read_numbers"]:
+                        self.current_token.set_data("has_read_numbers", True)
                 elif char == "." and not data["past_decimal"]:
                     self.current_token.append(char)
                     self.current_token.set_data("past_decimal", True)
+                    if data["negative"] and not data["has_read_numbers"]:
+                        self.current_token.set_data("has_read_numbers", True)
+                elif char == " " and data["negative"] and not data["has_read_numbers"]:
+                    self.current_token.append(char)
                 else:
                     self.push_token()
                     self.push(char)
@@ -51,14 +57,14 @@ class Tokenizer:
                     raise SyntaxError(
                         f"String literals must be closed between single or \
                             double quotes {self.line}:{self.col}")
-                elif char_code == data["starts_with"]:
-                    self.current_token.append(char_code)
+                elif char == data["starts_with"]:
+                    self.current_token.append(char)
                     self.current_token = Token(
                         Literal.CLOSED_STRING, self.current_token.value)
                     self.current_token.set_data(
                         "starts_with", self.current_token.last_char())
                 else:
-                    self.current_token.append(char_code)
+                    self.current_token.append(char)
             elif type == Literal.COMMENT:
                 if char_code == 10:
                     self.push_token()
@@ -119,18 +125,6 @@ class Tokenizer:
                 if char == "=":
                     self.current_token = Token(
                         Operator.AUGMENTED_SUBTRACTION, "-=")
-                elif char.isnumeric() and self.last_not_whitespace_token().type != Literal.NUMBER:
-                    self.current_token.append(char)
-                    self.current_token = Token(
-                        Literal.NUMBER, self.current_token.value)
-                    self.current_token.set_data("negative", True)
-                    self.current_token.set_data("past_decimal", False)
-                elif char == ".":
-                    self.current_token.current_token.append(char)
-                    self.current_token.current_token = Token(
-                        Literal.NUMBER, self.current_token.value)
-                    self.current_token.set_data("negative", True)
-                    self.current_token.set_data("past_decimal", True)
                 else:
                     self.push_token()
                     self.push(char)
@@ -164,8 +158,8 @@ class Tokenizer:
                     self.push(char)
             elif type == Operator.MODULUS:
                 if char_code == 10:
-                    # Modulus operators takes 2 arguments
-                    raise SyntaxError()
+                    raise SyntaxError(
+                        f"Modulus operators takes 2 arguments, but only found 1 (at {self.line}:{self.col}).")
                 elif char.isnumeric():
                     self.push_token()
                     self.push(char)
@@ -327,8 +321,14 @@ class Tokenizer:
             elif char_code == 43:
                 self.current_token = Token(Operator.ADDITION, char)
             elif char_code == 45:
-                self.current_token = Token(
-                    Operator.SUBTRACTION, char)
+                if (self.has_token() and self.last_not_whitespace_token().type == Literal.NUMBER):
+                    self.current_token = Token(
+                        Operator.SUBTRACTION, char)
+                else:
+                    self.current_token = Token(Literal.NUMBER, char)
+                    self.current_token.set_data("negative", True)
+                    self.current_token.set_data("past_decimal", False)
+                    self.current_token.set_data("has_read_numbers", False)
             elif char_code == 46:
                 self.current_token = Token(Punctuation.ACCESSOR, char)
                 self.push_token()
@@ -381,8 +381,11 @@ class Tokenizer:
         self.col += 1
         return c
 
-    def has_token(self):
+    def has_current_token(self):
         return self.current_token != None
+
+    def has_token(self):
+        return len(self.tokens) != 0
 
     def reset_token(self):
         self.current_token = None
@@ -537,6 +540,5 @@ keywords = {
 }
 
 tokenizer = Tokenizer()
-tokens = tokenizer.tokenize("test.py")
-for token in tokens:
+for token in tokenizer.tokenize("test.py"):
     print(token)
