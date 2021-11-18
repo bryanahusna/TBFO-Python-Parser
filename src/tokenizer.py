@@ -538,7 +538,3 @@ keywords = {
     "or": Keyword.OR,
     "not": Keyword.NOT
 }
-
-tokenizer = Tokenizer()
-for token in tokenizer.tokenize("test.py"):
-    print(token)
