@@ -34,7 +34,8 @@ class Tokenizer:
                 else:
                     name = self.current_token.value
                     if name in keywords.keys():
-                        self.current_token = Token(keywords[name], name)
+                        self.current_token = Token(keywords[name], name,
+                                                   self.current_token.starts_at)
                     self.push_token()
                     self.push(char)
             elif type == Literal.NUMBER:
@@ -69,7 +70,8 @@ class Tokenizer:
                 elif char == data["starts_with"]:
                     self.current_token.append(char)
                     self.current_token = Token(
-                        Literal.CLOSED_STRING, self.current_token.value)
+                        Literal.CLOSED_STRING, self.current_token.value,
+                        self.current_token.starts_at)
                     self.current_token.set_data(
                         "starts_with", self.current_token.last_char())
                 else:
@@ -84,18 +86,21 @@ class Tokenizer:
                 if char == '"' and self.current_token.value == '""':
                     self.current_token.append(char)
                     self.current_token = Token(
-                        Literal.STRING_MULTILINE, self.current_token.value)
+                        Literal.STRING_MULTILINE, self.current_token.value,
+                        self.current_token.starts_at)
                     self.current_token.set_data("starts_with", '"')
                     self.current_token.set_data("quotes_trail", 0)
                 elif char == "'" and self.current_token.value == "''":
                     self.current_token.append(char)
                     self.current_token = Token(
-                        Literal.STRING_MULTILINE, self.current_token.value)
+                        Literal.STRING_MULTILINE, self.current_token.value,
+                        self.current_token.starts_at)
                     self.current_token.set_data("starts_with", "'")
                     self.current_token.set_data("quotes_trail", 0)
                 else:
                     self.current_token = Token(
-                        Literal.STRING, self.current_token.value)
+                        Literal.STRING, self.current_token.value,
+                        self.current_token.starts_at)
                     self.push_token()
                     self.push(char)
             elif type == Literal.STRING_MULTILINE:
@@ -118,7 +123,8 @@ class Tokenizer:
                     self.push(char)
             elif type == Literal.CR:
                 if char_code == 10:
-                    self.current_token = Token(Literal.NEWLINE, "\\r\\n")
+                    self.current_token = Token(
+                        Literal.NEWLINE, "\\r\\n", self.current_token.starts_at)
                     self.push_token()
                 else:
                     self.push_token()
@@ -126,42 +132,42 @@ class Tokenizer:
             elif type == Operator.ADDITION:
                 if char == "=":
                     self.current_token = Token(
-                        Operator.AUGMENTED_ADDITION, "+=")
+                        Operator.AUGMENTED_ADDITION, "+=", self.current_token.starts_at)
                 else:
                     self.push_token()
                     self.push(char)
             elif type == Operator.SUBTRACTION:
                 if char == "=":
                     self.current_token = Token(
-                        Operator.AUGMENTED_SUBTRACTION, "-=")
+                        Operator.AUGMENTED_SUBTRACTION, "-=", self.current_token.starts_at)
                 else:
                     self.push_token()
                     self.push(char)
             elif type == Operator.MULTIPLICATION:
                 if char == "=":
                     self.current_token = Token(
-                        Operator.AUGMENTED_MULTIPLICATION, "*=")
+                        Operator.AUGMENTED_MULTIPLICATION, "*=", self.current_token.starts_at)
                 else:
                     self.push_token()
                     self.push(char)
             elif type == Operator.DIVISION:
                 if char == "=":
                     self.current_token = Token(
-                        Operator.AUGMENTED_DIVISION, "/=")
+                        Operator.AUGMENTED_DIVISION, "/=", self.current_token.starts_at)
                 else:
                     self.push_token()
                     self.push(char)
             elif type == Operator.FLOOR_DIVISION:
                 if char == "=":
                     self.current_token = Token(
-                        Operator.AUGMENTED_FLOOR_DIVISION, "//=")
+                        Operator.AUGMENTED_FLOOR_DIVISION, "//=", self.current_token.starts_at)
                 else:
                     self.push_token()
                     self.push(char)
             elif type == Operator.EXPONENTIATION:
                 if char == "=":
                     self.current_token = Token(
-                        Operator.AUGMENTED_EXPONENTIATION, "**=")
+                        Operator.AUGMENTED_EXPONENTIATION, "**=", self.current_token.starts_at)
                 else:
                     self.push_token()
                     self.push(char)
@@ -177,7 +183,7 @@ class Tokenizer:
                     self.push(char)
                 elif char_code == 61:
                     self.current_token = Token(
-                        Operator.AUGMENTED_MODULUS, "%=")
+                        Operator.AUGMENTED_MODULUS, "%=", self.current_token.starts_at)
                     self.push_token()
                 else:
                     self.push_token()
@@ -198,20 +204,22 @@ class Tokenizer:
                         f"Invalid character at line {self.line}:{self.col}")
             elif type == Operator.GREATER_THAN:
                 if char == "=":
-                    self.current_token = Token(Operator.GREATER_EQUAL, ">=")
+                    self.current_token = Token(
+                        Operator.GREATER_EQUAL, ">=", self.current_token.starts_at)
                     self.push_token()
                 elif char == ">":
                     self.current_token = Token(
-                        Operator.BITWISE_RIGHT_SHIFT, ">>")
+                        Operator.BITWISE_RIGHT_SHIFT, ">>", self.current_token.starts_at)
                 else:
                     self.push_token()
                     self.push(char)
             elif type == Operator.LESS_THAN:
                 if char == "=":
-                    self.current_token = Token(Operator.LESS_EQUAL, "<=")
+                    self.current_token = Token(
+                        Operator.LESS_EQUAL, "<=", self.current_token.starts_at)
                 elif char == "<":
                     self.current_token = Token(
-                        Operator.BITWISE_RIGHT_SHIFT, "<<")
+                        Operator.BITWISE_RIGHT_SHIFT, "<<", self.current_token.starts_at)
                 else:
                     self.push_token()
                     self.push(char)
@@ -223,28 +231,32 @@ class Tokenizer:
                 self.push(char)
             elif type == Operator.ASSIGNMENT:
                 if char == "=":
-                    self.current_token = Token(Operator.EQUAL, "==")
+                    self.current_token = Token(Operator.EQUAL, "==",
+                                               self.current_token.starts_at)
                 else:
                     self.push_token()
                     self.push(char)
             elif type == Operator.BITWISE_AND:
                 if char == "=":
                     self.current_token = Token(
-                        Operator.AUGMENTED_BITWISE_AND, "&=")
+                        Operator.AUGMENTED_BITWISE_AND, "&=",
+                        self.current_token.starts_at)
                 else:
                     self.push_token()
                     self.push(char)
             elif type == Operator.BITWISE_OR:
                 if char == "=":
                     self.current_token = Token(
-                        Operator.AUGMENTED_BITWISE_OR, "|=")
+                        Operator.AUGMENTED_BITWISE_OR, "|=",
+                        self.current_token.starts_at)
                 else:
                     self.push_token()
                     self.push(char)
             elif type == Operator.BITWISE_XOR:
                 if char == "=":
                     self.current_token = Token(
-                        Operator.AUGMENTED_BITWISE_XOR, "^=")
+                        Operator.AUGMENTED_BITWISE_XOR, "^=",
+                        self.current_token.starts_at)
                 else:
                     self.push_token()
                     self.push(char)
@@ -254,14 +266,16 @@ class Tokenizer:
             elif type == Operator.BITWISE_LEFT_SHIFT:
                 if char == "=":
                     self.current_token = Token(
-                        Operator.AUGMENTED_BITWISE_LEFT_SHIFT, "<<=")
+                        Operator.AUGMENTED_BITWISE_LEFT_SHIFT, "<<=",
+                        self.current_token.starts_at)
                 else:
                     self.push_token()
                     self.push(char)
             elif type == Operator.BITWISE_RIGHT_SHIFT:
                 if char == "=":
                     self.current_token = Token(
-                        Operator.AUGMENTED_BITWISE_RIGHT_SHIFT, ">>=")
+                        Operator.AUGMENTED_BITWISE_RIGHT_SHIFT, ">>=",
+                        self.current_token.starts_at)
                 else:
                     self.push_token()
                     self.push(char)
@@ -303,86 +317,113 @@ class Tokenizer:
                 self.push(char)
         else:
             if char_code == 10:
-                self.current_token = Token(Literal.NEWLINE, char)
+                self.current_token = Token(
+                    Literal.NEWLINE, char, (self.line, self.col))
             elif char_code == 13:
                 self.current_token = Token(Literal.CR, char)
             elif char_code == 32 or char == "\t":
-                self.current_token = Token(Literal.WHITESPACE, char)
+                self.current_token = Token(
+                    Literal.WHITESPACE, char, (self.line, self.col))
             elif char_code == 33:
-                self.current_token = Token(Operator.NOT_EQUAL, char)
+                self.current_token = Token(
+                    Operator.NOT_EQUAL, char, (self.line, self.col))
                 self.current_token.set_data("is_completed", False)
             elif char_code == 34:
-                self.current_token = Token(Literal.STRING, char)
+                self.current_token = Token(
+                    Literal.STRING, char, (self.line, self.col))
                 self.current_token.set_data("starts_with", char)
                 self.current_token.set_data("escape", False)
             elif char_code == 35:
-                self.current_token = Token(Literal.COMMENT, char)
+                self.current_token = Token(
+                    Literal.COMMENT, char, (self.line, self.col))
             elif char_code == 37:
-                self.current_token = Token(Operator.MODULUS, char)
+                self.current_token = Token(
+                    Operator.MODULUS, char, (self.line, self.col))
             elif char_code == 38:
-                self.current_token = Token(Operator.BITWISE_AND, char)
+                self.current_token = Token(
+                    Operator.BITWISE_AND, char, (self.line, self.col))
             elif char_code == 39:
-                self.current_token = Token(Literal.STRING, char)
+                self.current_token = Token(
+                    Literal.STRING, char, (self.line, self.col))
                 self.current_token.set_data("starts_with", char)
+                self.current_token.set_data("escape", False)
             elif char_code == 40:
                 self.current_token = Token(
-                    Punctuation.PARENTHESIS_OPEN, char)
+                    Punctuation.PARENTHESIS_OPEN, char, (self.line, self.col))
                 self.push_token()
             elif char_code == 41:
                 self.current_token = Token(
-                    Punctuation.PARENTHESIS_CLOSE, char)
+                    Punctuation.PARENTHESIS_CLOSE, char, (self.line, self.col))
                 self.push_token()
             elif char_code == 42:
-                self.current_token = Token(Operator.MULTIPLICATION, char)
+                self.current_token = Token(
+                    Operator.MULTIPLICATION, char, (self.line, self.col))
             elif char_code == 43:
-                self.current_token = Token(Operator.ADDITION, char)
+                self.current_token = Token(
+                    Operator.ADDITION, char, (self.line, self.col))
             elif char_code == 45:
                 if (self.has_token() and self.last_not_whitespace_token().type == Literal.NUMBER):
                     self.current_token = Token(
-                        Operator.SUBTRACTION, char)
+                        Operator.SUBTRACTION, char, (self.line, self.col))
                 else:
-                    self.current_token = Token(Literal.NUMBER, char)
+                    self.current_token = Token(
+                        Literal.NUMBER, char, (self.line, self.col))
                     self.current_token.set_data("negative", True)
                     self.current_token.set_data("past_decimal", False)
                     self.current_token.set_data("has_read_numbers", False)
             elif char_code == 46:
-                self.current_token = Token(Punctuation.ACCESSOR, char)
+                self.current_token = Token(
+                    Punctuation.ACCESSOR, char, (self.line, self.col))
                 self.push_token()
             elif char_code == 47:
-                self.current_token = Token(Operator.DIVISION, char)
+                self.current_token = Token(
+                    Operator.DIVISION, char, (self.line, self.col))
             elif char.isnumeric():
-                self.current_token = Token(Literal.NUMBER, char_code - 48)
+                self.current_token = Token(
+                    Literal.NUMBER, char, (self.line, self.col))
                 self.current_token.set_data("negative", False)
                 self.current_token.set_data("past_decimal", False)
             elif char_code == 58:
-                self.current_token = Token(Punctuation.COLON, char)
+                self.current_token = Token(
+                    Punctuation.COLON, char, (self.line, self.col))
                 self.push_token()
             elif char_code == 60:
-                self.current_token = Token(Operator.LESS_THAN, char)
+                self.current_token = Token(
+                    Operator.LESS_THAN, char, (self.line, self.col))
             elif char_code == 61:
-                self.current_token = Token(Operator.ASSIGNMENT, char)
+                self.current_token = Token(
+                    Operator.ASSIGNMENT, char, (self.line, self.col))
+            elif char_code == 62:
+                self.current_token = Token(
+                    Operator.GREATER_THAN, char, (self.line, self.col))
             elif char.isalpha() or char_code == 95:
-                self.current_token = Token(Literal.NAME, char)
+                self.current_token = Token(
+                    Literal.NAME, char, (self.line, self.col))
             elif char_code == 91:
                 self.current_token = Token(
-                    Punctuation.SQUARE_BRACKET_OPEN, char)
+                    Punctuation.SQUARE_BRACKET_OPEN, char, (self.line, self.col))
                 self.push_token()
             elif char_code == 93:
                 self.current_token = Token(
-                    Punctuation.SQUARE_BRACKET_OPEN, char)
+                    Punctuation.SQUARE_BRACKET_OPEN, char, (self.line, self.col))
                 self.push_token()
             elif char_code == 94:
-                self.current_token = Token(Operator.BITWISE_XOR, char)
+                self.current_token = Token(
+                    Operator.BITWISE_XOR, char, (self.line, self.col))
             elif char_code == 123:
-                self.current_token = Token(Punctuation.BRACKET_OPEN, char)
+                self.current_token = Token(
+                    Punctuation.BRACKET_OPEN, char, (self.line, self.col))
                 self.push_token()
             elif char_code == 124:
-                self.current_token = Token(Operator.BITWISE_OR, char)
+                self.current_token = Token(
+                    Operator.BITWISE_OR, char, (self.line, self.col))
             elif char_code == 125:
-                self.current_token = Token(Punctuation.BRACKET_CLOSE, char)
+                self.current_token = Token(
+                    Punctuation.BRACKET_CLOSE, char, (self.line, self.col))
                 self.push_token()
             elif char_code == 126:
-                self.current_token = Token(Operator.BITWISE_NOT, char)
+                self.current_token = Token(
+                    Operator.BITWISE_NOT, char, (self.line, self.col))
 
     def push_token(self):
         self.tokens.append(self.current_token)
@@ -422,10 +463,11 @@ class Tokenizer:
 
 
 class Token:
-    def __init__(self, type, value):
+    def __init__(self, type, value, start):
         self.type = type
         self.value = value
         self.data = {}
+        self.starts_at = start
 
     def __str__(self):
         value = self.value.replace("\n", "\\n")
