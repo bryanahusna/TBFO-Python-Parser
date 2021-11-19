@@ -49,11 +49,20 @@ class Tokenizer:
                         self.current_token.set_data("has_read_numbers", True)
                 elif char == " " and data["negative"] and not data["has_read_numbers"]:
                     self.current_token.append(char)
+                elif char == "j":
+                    self.current_token.append(char)
+                    self.push_token()
                 else:
                     self.push_token()
                     self.push(char)
             elif type == Literal.STRING:
-                if char_code == 10:
+                if data["escape"]:
+                    self.current_token.append(char)
+                    self.current_token.set_data("escape", False)
+                elif char == "\\":
+                    self.current_token.append(char)
+                    self.current_token.set_data("escape", True)
+                elif char_code == 10:
                     raise SyntaxError(
                         f"String literals must be closed between single or \
                             double quotes {self.line}:{self.col}")
@@ -90,8 +99,6 @@ class Tokenizer:
                     self.push_token()
                     self.push(char)
             elif type == Literal.STRING_MULTILINE:
-                if char == "\n":
-                    char = "\\n"
                 self.current_token.append(char)
                 if char == data["starts_with"]:
                     trail = data["quotes_trail"]
@@ -193,12 +200,18 @@ class Tokenizer:
                 if char == "=":
                     self.current_token = Token(Operator.GREATER_EQUAL, ">=")
                     self.push_token()
+                elif char == ">":
+                    self.current_token = Token(
+                        Operator.BITWISE_RIGHT_SHIFT, ">>")
                 else:
                     self.push_token()
                     self.push(char)
             elif type == Operator.LESS_THAN:
                 if char == "=":
                     self.current_token = Token(Operator.LESS_EQUAL, "<=")
+                elif char == "<":
+                    self.current_token = Token(
+                        Operator.BITWISE_RIGHT_SHIFT, "<<")
                 else:
                     self.push_token()
                     self.push(char)
@@ -290,10 +303,10 @@ class Tokenizer:
                 self.push(char)
         else:
             if char_code == 10:
-                self.current_token = Token(Literal.NEWLINE, "\\n")
+                self.current_token = Token(Literal.NEWLINE, char)
             elif char_code == 13:
-                self.current_token = Token(Literal.CR, "\\r")
-            elif char_code == 32:
+                self.current_token = Token(Literal.CR, char)
+            elif char_code == 32 or char == "\t":
                 self.current_token = Token(Literal.WHITESPACE, char)
             elif char_code == 33:
                 self.current_token = Token(Operator.NOT_EQUAL, char)
@@ -301,6 +314,7 @@ class Tokenizer:
             elif char_code == 34:
                 self.current_token = Token(Literal.STRING, char)
                 self.current_token.set_data("starts_with", char)
+                self.current_token.set_data("escape", False)
             elif char_code == 35:
                 self.current_token = Token(Literal.COMMENT, char)
             elif char_code == 37:
@@ -414,7 +428,10 @@ class Token:
         self.data = {}
 
     def __str__(self):
-        return f"Token <type = {self.type}, value = \"{self.value}\">"
+        value = self.value.replace("\n", "\\n")
+        value = value.replace("\r", "\\r")
+        value = value.replace("\t", "\\t")
+        return f"Token <type = {self.type}, value = \"{value}\">"
 
     def set_data(self, key, value):
         self.data[key] = value
@@ -540,3 +557,7 @@ keywords = {
     "or": Keyword.OR,
     "not": Keyword.NOT
 }
+
+tokenizer = Tokenizer()
+for token in tokenizer.tokenize("test.py"):
+    print(token)
