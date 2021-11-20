@@ -1,8 +1,0 @@
-# Work gan
-X = (10 + 5); Y = 20 # ini komentar
-
-X = (	10 + 			20)*55555555555555555555 # Valid gan
-X = 10 *(20+(3*(75 + 10 % 100)) )/ 1000
-Y = (10 + 5	# Tidak valid
-Z = 10 + 5)	# Tidak valid
-; 10*10		# Menurut Python ini tidak valid
