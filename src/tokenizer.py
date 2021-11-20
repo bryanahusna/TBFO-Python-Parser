@@ -1,8 +1,9 @@
-from enum import Enum
+from tokens import *
 
 
 class Tokenizer:
     def __init__(self):
+        # type: () -> Tokenizer
         self.tokens = []
         self.lines = []
         self.line = 0
@@ -10,9 +11,11 @@ class Tokenizer:
         self.current_token = None
 
     def tokenize(self, filename):
+        # type: (str) -> list[Token]
         with open(filename, "r") as f:
             for line in f:
                 self.lines.append(line)
+        self.lines[-1] = "".join([self.lines[-1], '\0'])
         while self.line < len(self.lines):
             line = self.lines[self.line]
             line_length = len(line)
@@ -26,9 +29,16 @@ class Tokenizer:
     def push(self, char: str):
         char_code = ord(char)
         if (self.has_current_token()):
-            type = self.current_token.type
+            token_type = self.current_token.type
             data = self.current_token.data
-            if type == Literal.NAME:
+            if char == '\0':
+                if token_type == Transition.CLOSED_STRING:
+                    self.current_token.type == Literal.STRING
+                elif token_type == Transition.DOUBLE_DOT:
+                    raise SyntaxError("")
+                self.push_token()
+                self.push(char)
+            elif token_type == Literal.NAME:
                 if char.isalnum() or char == '_':
                     self.current_token.append(char)
                 else:
@@ -38,7 +48,7 @@ class Tokenizer:
                                                    self.current_token.starts_at)
                     self.push_token()
                     self.push(char)
-            elif type == Literal.NUMBER:
+            elif token_type == Literal.NUMBER:
                 if char.isnumeric():
                     self.current_token.append(char)
                     if data["negative"] and not data["has_read_numbers"]:
@@ -56,7 +66,7 @@ class Tokenizer:
                 else:
                     self.push_token()
                     self.push(char)
-            elif type == Literal.STRING:
+            elif token_type == Literal.STRING:
                 if data["escape"]:
                     self.current_token.append(char)
                     self.current_token.set_data("escape", False)
@@ -70,19 +80,19 @@ class Tokenizer:
                 elif char == data["starts_with"]:
                     self.current_token.append(char)
                     self.current_token = Token(
-                        Literal.CLOSED_STRING, self.current_token.value,
+                        Transition.CLOSED_STRING, self.current_token.value,
                         self.current_token.starts_at)
                     self.current_token.set_data(
                         "starts_with", self.current_token.last_char())
                 else:
                     self.current_token.append(char)
-            elif type == Literal.COMMENT:
+            elif token_type == Literal.COMMENT:
                 if char_code == 10:
                     self.push_token()
                     self.push(char)
                 else:
                     self.current_token.append(char)
-            elif type == Literal.CLOSED_STRING:
+            elif token_type == Transition.CLOSED_STRING:
                 if char == '"' and self.current_token.value == '""':
                     self.current_token.append(char)
                     self.current_token = Token(
@@ -103,7 +113,7 @@ class Tokenizer:
                         self.current_token.starts_at)
                     self.push_token()
                     self.push(char)
-            elif type == Literal.STRING_MULTILINE:
+            elif token_type == Literal.STRING_MULTILINE:
                 self.current_token.append(char)
                 if char == data["starts_with"]:
                     trail = data["quotes_trail"]
@@ -112,66 +122,67 @@ class Tokenizer:
                         self.push_token()
                 else:
                     self.current_token.set_data("quotes_trail", 0)
-            elif type == Literal.NEWLINE:
+            elif token_type == Literal.NEWLINE:
                 self.push_token()
                 self.push(char)
-            elif type == Literal.WHITESPACE:
+            elif token_type == Literal.WHITESPACE:
                 if char_code == 32:
                     self.current_token.append(chr(32))
                 else:
                     self.push_token()
                     self.push(char)
-            elif type == Literal.CR:
+            elif token_type == Literal.CR:
                 if char_code == 10:
+                    self.current_token.append(char)
                     self.current_token = Token(
-                        Literal.NEWLINE, "\\r\\n", self.current_token.starts_at)
+                        Literal.NEWLINE, self.current_token.value, self.current_token.starts_at)
                     self.push_token()
                 else:
                     self.push_token()
                     self.push(char)
-            elif type == Operator.ADDITION:
+            elif token_type == Operator.ADDITION:
                 if char == "=":
                     self.current_token = Token(
                         Operator.AUGMENTED_ADDITION, "+=", self.current_token.starts_at)
                 else:
                     self.push_token()
                     self.push(char)
-            elif type == Operator.SUBTRACTION:
+            elif token_type == Operator.SUBTRACTION:
                 if char == "=":
                     self.current_token = Token(
                         Operator.AUGMENTED_SUBTRACTION, "-=", self.current_token.starts_at)
                 else:
                     self.push_token()
                     self.push(char)
-            elif type == Operator.MULTIPLICATION:
+            elif token_type == Operator.MULTIPLICATION:
                 if char == "=":
                     self.current_token = Token(
                         Operator.AUGMENTED_MULTIPLICATION, "*=", self.current_token.starts_at)
                 else:
                     self.push_token()
                     self.push(char)
-            elif type == Operator.DIVISION:
+            elif token_type == Operator.DIVISION:
                 if char == "=":
                     self.current_token = Token(
                         Operator.AUGMENTED_DIVISION, "/=", self.current_token.starts_at)
                 else:
                     self.push_token()
                     self.push(char)
-            elif type == Operator.FLOOR_DIVISION:
+            elif token_type == Operator.FLOOR_DIVISION:
                 if char == "=":
                     self.current_token = Token(
                         Operator.AUGMENTED_FLOOR_DIVISION, "//=", self.current_token.starts_at)
                 else:
                     self.push_token()
                     self.push(char)
-            elif type == Operator.EXPONENTIATION:
+            elif token_type == Operator.EXPONENTIATION:
                 if char == "=":
                     self.current_token = Token(
                         Operator.AUGMENTED_EXPONENTIATION, "**=", self.current_token.starts_at)
                 else:
                     self.push_token()
                     self.push(char)
-            elif type == Operator.MODULUS:
+            elif token_type == Operator.MODULUS:
                 if char_code == 10:
                     raise SyntaxError(
                         f"Modulus operators takes 2 arguments, but only found 1 (at {self.line}:{self.col}).")
@@ -188,10 +199,10 @@ class Tokenizer:
                 else:
                     self.push_token()
                     self.push(char)
-            elif type == Operator.EQUAL:
+            elif token_type == Operator.EQUAL:
                 self.push_token()
                 self.push(char)
-            elif type == Operator.NOT_EQUAL:
+            elif token_type == Operator.NOT_EQUAL:
                 if data["is_completed"]:
                     self.push_token()
                     self.push(char)
@@ -202,7 +213,7 @@ class Tokenizer:
                 else:
                     raise SyntaxError(
                         f"Invalid character at line {self.line}:{self.col}")
-            elif type == Operator.GREATER_THAN:
+            elif token_type == Operator.GREATER_THAN:
                 if char == "=":
                     self.current_token = Token(
                         Operator.GREATER_EQUAL, ">=", self.current_token.starts_at)
@@ -213,7 +224,7 @@ class Tokenizer:
                 else:
                     self.push_token()
                     self.push(char)
-            elif type == Operator.LESS_THAN:
+            elif token_type == Operator.LESS_THAN:
                 if char == "=":
                     self.current_token = Token(
                         Operator.LESS_EQUAL, "<=", self.current_token.starts_at)
@@ -223,20 +234,20 @@ class Tokenizer:
                 else:
                     self.push_token()
                     self.push(char)
-            elif type == Operator.GREATER_EQUAL:
+            elif token_type == Operator.GREATER_EQUAL:
                 self.push_token()
                 self.push(char)
-            elif type == Operator.LESS_EQUAL:
+            elif token_type == Operator.LESS_EQUAL:
                 self.push_token()
                 self.push(char)
-            elif type == Operator.ASSIGNMENT:
+            elif token_type == Operator.ASSIGNMENT:
                 if char == "=":
                     self.current_token = Token(Operator.EQUAL, "==",
                                                self.current_token.starts_at)
                 else:
                     self.push_token()
                     self.push(char)
-            elif type == Operator.BITWISE_AND:
+            elif token_type == Operator.BITWISE_AND:
                 if char == "=":
                     self.current_token = Token(
                         Operator.AUGMENTED_BITWISE_AND, "&=",
@@ -244,7 +255,7 @@ class Tokenizer:
                 else:
                     self.push_token()
                     self.push(char)
-            elif type == Operator.BITWISE_OR:
+            elif token_type == Operator.BITWISE_OR:
                 if char == "=":
                     self.current_token = Token(
                         Operator.AUGMENTED_BITWISE_OR, "|=",
@@ -252,7 +263,7 @@ class Tokenizer:
                 else:
                     self.push_token()
                     self.push(char)
-            elif type == Operator.BITWISE_XOR:
+            elif token_type == Operator.BITWISE_XOR:
                 if char == "=":
                     self.current_token = Token(
                         Operator.AUGMENTED_BITWISE_XOR, "^=",
@@ -260,10 +271,10 @@ class Tokenizer:
                 else:
                     self.push_token()
                     self.push(char)
-            elif type == Operator.BITWISE_NOT:
+            elif token_type == Operator.BITWISE_NOT:
                 self.push_token()
                 self.push(char)
-            elif type == Operator.BITWISE_LEFT_SHIFT:
+            elif token_type == Operator.BITWISE_LEFT_SHIFT:
                 if char == "=":
                     self.current_token = Token(
                         Operator.AUGMENTED_BITWISE_LEFT_SHIFT, "<<=",
@@ -271,7 +282,7 @@ class Tokenizer:
                 else:
                     self.push_token()
                     self.push(char)
-            elif type == Operator.BITWISE_RIGHT_SHIFT:
+            elif token_type == Operator.BITWISE_RIGHT_SHIFT:
                 if char == "=":
                     self.current_token = Token(
                         Operator.AUGMENTED_BITWISE_RIGHT_SHIFT, ">>=",
@@ -279,44 +290,60 @@ class Tokenizer:
                 else:
                     self.push_token()
                     self.push(char)
-            elif type == Operator.AUGMENTED_ADDITION:
+            elif token_type == Operator.AUGMENTED_ADDITION:
                 self.push_token()
                 self.push(char)
-            elif type == Operator.AUGMENTED_SUBTRACTION:
+            elif token_type == Operator.AUGMENTED_SUBTRACTION:
                 self.push_token()
                 self.push(char)
-            elif type == Operator.AUGMENTED_MULTIPLICATION:
+            elif token_type == Operator.AUGMENTED_MULTIPLICATION:
                 self.push_token()
                 self.push(char)
-            elif type == Operator.AUGMENTED_DIVISION:
+            elif token_type == Operator.AUGMENTED_DIVISION:
                 self.push_token()
                 self.push(char)
-            elif type == Operator.AUGMENTED_FLOOR_DIVISION:
+            elif token_type == Operator.AUGMENTED_FLOOR_DIVISION:
                 self.push_token()
                 self.push(char)
-            elif type == Operator.AUGMENTED_EXPONENTIATION:
+            elif token_type == Operator.AUGMENTED_EXPONENTIATION:
                 self.push_token()
                 self.push(char)
-            elif type == Operator.AUGMENTED_MODULUS:
+            elif token_type == Operator.AUGMENTED_MODULUS:
                 self.push_token()
                 self.push(char)
-            elif type == Operator.AUGMENTED_BITWISE_AND:
+            elif token_type == Operator.AUGMENTED_BITWISE_AND:
                 self.push_token()
                 self.push(char)
-            elif type == Operator.AUGMENTED_BITWISE_OR:
+            elif token_type == Operator.AUGMENTED_BITWISE_OR:
                 self.push_token()
                 self.push(char)
-            elif type == Operator.AUGMENTED_BITWISE_XOR:
+            elif token_type == Operator.AUGMENTED_BITWISE_XOR:
                 self.push_token()
                 self.push(char)
-            elif type == Operator.AUGMENTED_BITWISE_LEFT_SHIFT:
+            elif token_type == Operator.AUGMENTED_BITWISE_LEFT_SHIFT:
                 self.push_token()
                 self.push(char)
-            elif type == Operator.AUGMENTED_BITWISE_RIGHT_SHIFT:
+            elif token_type == Operator.AUGMENTED_BITWISE_RIGHT_SHIFT:
                 self.push_token()
                 self.push(char)
+            elif token_type == Punctuation.ACCESSOR:
+                if char == '.':
+                    self.append(char)
+                    self.current_token.type = Transition.DOUBLE_DOT
+                else:
+                    self.push_token()
+                    self.push(char)
+            elif token_type == Transition.DOUBLE_DOT:
+                if char == '.':
+                    self.append(char)
+                    self.current_token.type = Literal.ELLIPSIS
+                else:
+                    raise SyntaxError("")
         else:
-            if char_code == 10:
+            if char_code == 0:
+                self.current_token = Token(Literal.ENDMARKER,
+                                           char, (self.line, self.col))
+            elif char_code == 10:
                 self.current_token = Token(
                     Literal.NEWLINE, char, (self.line, self.col))
             elif char_code == 13:
@@ -361,6 +388,11 @@ class Tokenizer:
             elif char_code == 43:
                 self.current_token = Token(
                     Operator.ADDITION, char, (self.line, self.col))
+            elif char_code == 44:
+                self.current_token = Token(
+                    Punctuation.COMMA, char, (self.line, self.col)
+                )
+                self.push_token()
             elif char_code == 45:
                 if (self.has_token() and self.last_not_whitespace_token().type == Literal.NUMBER):
                     self.current_token = Token(
@@ -374,7 +406,6 @@ class Tokenizer:
             elif char_code == 46:
                 self.current_token = Token(
                     Punctuation.ACCESSOR, char, (self.line, self.col))
-                self.push_token()
             elif char_code == 47:
                 self.current_token = Token(
                     Operator.DIVISION, char, (self.line, self.col))
@@ -464,6 +495,7 @@ class Tokenizer:
 
 class Token:
     def __init__(self, type, value, start):
+        # type: (TokenType, str, tuple[int, int]) -> Token
         self.type = type
         self.value = value
         self.data = {}
@@ -488,118 +520,7 @@ class Token:
         self.value = "".join([self.value, value])
 
 
-class Literal(Enum):
-    NAME = 0
-    NUMBER = 1
-    STRING = 2
-    COMMENT = 3
-    STRING_MULTILINE = 4
-    NEWLINE = 5
-    WHITESPACE = 6
-    CR = 7
-    CLOSED_STRING = 8
-
-
-class Punctuation(Enum):
-    COLON = 101
-    PARENTHESIS_OPEN = 102
-    PARENTHESIS_CLOSE = 103
-    BRACKET_OPEN = 104
-    BRACKET_CLOSE = 105
-    SQUARE_BRACKET_OPEN = 106
-    SQUARE_BRACKET_CLOSE = 107
-    ACCESSOR = 108
-
-
-class Keyword(Enum):
-    DEF = 200
-    CLASS = 201
-    FALSE = 202
-    TRUE = 203
-    IS = 204
-    RETURN = 205
-    NONE = 206
-    CONTINUE = 207
-    FOR = 208
-    FROM = 209
-    WHILE = 210
-    WITH = 211
-    AS = 212
-    IF = 213
-    ELIF = 214
-    ELSE = 215
-    IMPORT = 216
-    PASS = 217
-    BREAK = 218
-    IN = 219
-    RAISE = 220
-    AND = 221
-    OR = 222
-    NOT = 223
-
-
-class Operator(Enum):
-    ADDITION = 401
-    SUBTRACTION = 402
-    MULTIPLICATION = 403
-    DIVISION = 404
-    FLOOR_DIVISION = 405
-    EXPONENTIATION = 406
-    MODULUS = 407
-    EQUAL = 408
-    NOT_EQUAL = 409
-    GREATER_THAN = 410
-    LESS_THAN = 411
-    GREATER_EQUAL = 412
-    LESS_EQUAL = 413
-    ASSIGNMENT = 414
-    BITWISE_AND = 415
-    BITWISE_OR = 416
-    BITWISE_XOR = 417
-    BITWISE_NOT = 418
-    BITWISE_LEFT_SHIFT = 419
-    BITWISE_RIGHT_SHIFT = 420
-    AUGMENTED_ADDITION = 421
-    AUGMENTED_SUBTRACTION = 422
-    AUGMENTED_MULTIPLICATION = 423
-    AUGMENTED_DIVISION = 424
-    AUGMENTED_FLOOR_DIVISION = 425
-    AUGMENTED_EXPONENTIATION = 426
-    AUGMENTED_MODULUS = 427
-    AUGMENTED_BITWISE_AND = 428
-    AUGMENTED_BITWISE_OR = 429
-    AUGMENTED_BITWISE_XOR = 430
-    AUGMENTED_BITWISE_LEFT_SHIFT = 431
-    AUGMENTED_BITWISE_RIGHT_SHIFT = 432
-
-
-keywords = {
-    "def": Keyword.DEF,
-    "class": Keyword.CLASS,
-    "False": Keyword.FALSE,
-    "True": Keyword.TRUE,
-    "is": Keyword.IS,
-    "return": Keyword.RETURN,
-    "None": Keyword.NONE,
-    "continue": Keyword.CONTINUE,
-    "for": Keyword.FOR,
-    "from": Keyword.FROM,
-    "while": Keyword.WHILE,
-    "with": Keyword.WITH,
-    "as": Keyword.AS,
-    "if": Keyword.IF,
-    "elif": Keyword.ELIF,
-    "else": Keyword.ELSE,
-    "import": Keyword.IMPORT,
-    "pass": Keyword.PASS,
-    "break": Keyword.BREAK,
-    "in": Keyword.IN,
-    "raise": Keyword.RAISE,
-    "and": Keyword.AND,
-    "or": Keyword.OR,
-    "not": Keyword.NOT
-}
-
-tokenizer = Tokenizer()
-for token in tokenizer.tokenize("test.py"):
-    print(token)
+# Used for debugging purposes
+# tokenizer = Tokenizer()
+# for token in tokenizer.tokenize("t.py"):
+#     print(token)
