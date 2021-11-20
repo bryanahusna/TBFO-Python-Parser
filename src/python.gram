@@ -22,9 +22,9 @@ compound_stmt:
     | while_stmt
 
 assignment:
-    | NAME ['=' annotated_rhs ] 
+    | NAME ['=' star_expressions ] 
     | ('(' single_target ')' 
-         | single_subscript_attribute_target) ['=' annotated_rhs ] 
+         | single_subscript_attribute_target) ['=' star_expressions ] 
     | (star_targets '=' )+ star_expressions !'='
     | single_target augassign star_expressions 
 augassign:
@@ -42,23 +42,14 @@ augassign:
     | '**=' 
     | '//='
 
-import_stmt: import_name | import_from
-import_name: 'import' dotted_as_names
+import_stmt: 'import' dotted_as_name (',' dotted_name ['as' NAME ])* | import_from
 import_from:
     | 'from' ('.' | '...')* dotted_name 'import' import_from_targets 
     | 'from' ('.' | '...')+ 'import' import_from_targets 
 import_from_targets:
-    | '(' import_from_as_names [','] ')' 
-    | import_from_as_names !','
+    | '(' NAME ['as' NAME ] (',' NAME ['as' NAME ])* [','] ')' 
+    | NAME ['as' NAME ] (',' NAME ['as' NAME ])* !','
     | '*' 
-import_from_as_names:
-    | import_from_as_name (',' import_from_as_name)* 
-import_from_as_name:
-    | NAME ['as' NAME ] 
-dotted_as_names:
-    | dotted_as_name (',' dotted_as_name)* 
-dotted_as_name:
-    | dotted_name ['as' NAME ] 
 dotted_name:
     | dotted_name '.' NAME 
     | NAME
@@ -81,42 +72,28 @@ with_stmt:
     | 'with' '(' with_item (',' with_item)* ','? ')' ':' block 
     | 'with' with_item (',' with_item)* ':' block
 with_item:
-    | expression 'as' star_target &(',' | ')' | ':') 
-    | expression 
+    | disjunction 'as' star_target &(',' | ')' | ':') 
+    | disjunction 
 
 
 literal_expr:
-    | signed_number !('+' | '-')
-    | complex_number
+    | NUMBER !('+' | '-')
+    | '-' NUMBER !('+' | '-')
+    | NUMBER '+' NUMBER 
+    | '-' NUMBER '+' NUMBER 
+    | NUMBER '-' NUMBER  
+    | '-' NUMBER '-' NUMBER 
     | strings
     | 'None' 
     | 'True' 
     | 'False' 
-
-complex_number:
-    | signed_real_number '+' imaginary_number 
-    | signed_real_number '-' imaginary_number  
-
-signed_number:
-    | NUMBER
-    | '-' NUMBER 
-
-signed_real_number:
-    | real_number
-    | '-' real_number 
-
-real_number:
-    | NUMBER 
-
-imaginary_number:
-    | NUMBER 
 
 
 return_stmt:
     | 'return' [star_expressions] 
 
 raise_stmt:
-    | 'raise' expression ['from' expression ] 
+    | 'raise' disjunction ['from' disjunction ] 
     | 'raise' 
 
 function_def: 'def' NAME '(' [params] ')' ':' block
@@ -145,15 +122,13 @@ param_no_default:
     | param ',' 
     | param &')' 
 param_with_default:
-    | param default ',' 
-    | param default &')' 
+    | param '=' disjunction ',' 
+    | param '=' disjunction &')' 
 param_maybe_default:
-    | param default? ',' 
-    | param default? &')' 
-param: NAME annotation? 
+    | param '=' disjunction? ',' 
+    | param '=' disjunction? &')' 
+param: NAME ':' disjunction? 
 
-annotation: ':' expression 
-default: '=' expression 
 
 class_def: 'class' NAME ['(' [arguments] ')' ] ':' block 
 
@@ -166,28 +141,21 @@ star_expressions:
     | star_expression
 star_expression:
     | '*' bitwise_or 
-    | expression
+    | disjunction
 
 star_named_expressions: ','.star_named_expression+ [','] 
 star_named_expression:
     | '*' bitwise_or 
     | named_expression
 
-
-assignment_expression:
-    | NAME ':=' ~ expression 
-
 named_expression:
-    | assignment_expression
-    | expression !':='
-
-annotated_rhs: star_expressions
+    | NAME ':=' ~ disjunction
+    | disjunction !':='
 
 expressions:
-    | expression (',' expression )+ [','] 
-    | expression ',' 
-    | expression
-expression: disjunction
+    | disjunction (',' disjunction )+ [','] 
+    | disjunction ',' 
+    | disjunction
 
 disjunction:
     | conjunction ('or' conjunction )+ 
@@ -202,27 +170,16 @@ comparison:
     | bitwise_or compare_op_bitwise_or_pair+ 
     | bitwise_or
 compare_op_bitwise_or_pair:
-    | eq_bitwise_or
-    | noteq_bitwise_or
-    | lte_bitwise_or
-    | lt_bitwise_or
-    | gte_bitwise_or
-    | gt_bitwise_or
-    | notin_bitwise_or
-    | in_bitwise_or
-    | isnot_bitwise_or
-    | is_bitwise_or
-eq_bitwise_or: '==' bitwise_or 
-noteq_bitwise_or:
-    | ('!=' ) bitwise_or 
-lte_bitwise_or: '<=' bitwise_or 
-lt_bitwise_or: '<' bitwise_or 
-gte_bitwise_or: '>=' bitwise_or 
-gt_bitwise_or: '>' bitwise_or 
-notin_bitwise_or: 'not' 'in' bitwise_or 
-in_bitwise_or: 'in' bitwise_or 
-isnot_bitwise_or: 'is' 'not' bitwise_or 
-is_bitwise_or: 'is' bitwise_or 
+    | '==' bitwise_or
+    | ('!=' ) bitwise_or
+    | '<=' bitwise_or
+    | '<' bitwise_or
+    | '>=' bitwise_or
+    | '>' bitwise_or
+    | 'not' 'in' bitwise_or
+    | 'in' bitwise_or
+    | 'is' 'not' bitwise_or
+    | 'is' bitwise_or
 
 bitwise_or:
     | bitwise_or '|' bitwise_xor 
@@ -267,21 +224,19 @@ slices:
     | slice !',' 
     | ','.slice+ [','] 
 slice:
-    | [expression] ':' [expression] [':' [expression] ] 
+    | [disjunction] ':' [disjunction] [':' [disjunction] ] 
     | named_expression 
 atom:
     | NAME
     | 'True' 
     | 'False' 
     | 'None' 
-    | strings
+    | STRING+
     | NUMBER
     | (tuple | group)
-    | (list | listcomp)
     | (dict | set )
     | '...' 
 
-strings: STRING+ 
 list:
     | '[' [star_named_expressions] ']' 
 tuple:
@@ -295,27 +250,25 @@ dict:
 double_starred_kvpairs: double_starred_kvpair (',' double_starred_kvpair)* [','] 
 double_starred_kvpair:
     | '**' bitwise_or 
-    | kvpair
-kvpair: expression ':' expression
+    | disjunction ':' disjunction
 
 arguments:
     | args [','] &')' 
 args:
-    | ','.(starred_expression | ( assignment_expression | expression ) !'=')+ [',' kwargs ] 
+    | ','.('*' disjunction | ( NAME ':=' ~ disjunction | disjunction ) !'=')+ [',' kwargs ] 
     | kwargs 
 
 kwargs:
     | kwarg_or_starred (',' kwarg_or_starred)* ',' ','.kwarg_or_double_starred+ 
     | kwarg_or_starred (',' kwarg_or_starred)*
     | kwarg_or_double_starred (',' kwarg_or_double_starred)*
-starred_expression:
-    | '*' expression 
+
 kwarg_or_starred:
-    | NAME '=' expression 
-    | starred_expression 
+    | NAME '=' disjunction 
+    | '*' disjunction 
 kwarg_or_double_starred:
-    | NAME '=' expression 
-    | '**' expression 
+    | NAME '=' disjunction 
+    | '**' disjunction 
 
 star_targets:
     | star_target !',' 
