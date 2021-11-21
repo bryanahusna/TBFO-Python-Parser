@@ -343,6 +343,7 @@ class Tokenizer:
             if char_code == 0:
                 self.current_token = Token(Literal.ENDMARKER,
                                            char, (self.line, self.col))
+                self.push_token()
             elif char_code == 10:
                 self.current_token = Token(
                     Literal.NEWLINE, char, (self.line, self.col))
