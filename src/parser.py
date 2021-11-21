@@ -1,4 +1,5 @@
 from enum import Enum
+from os import stat
 from tokenizer import Tokenizer, Token
 from tokens import *
 
@@ -19,6 +20,10 @@ class Parser:
         tokenizer = Tokenizer()
         self.tokens = tokenizer.tokenize(filename)
         self.parse_indents()
+        self.next_statement()
+        while self.statement[0].type != Literal.ENDMARKER:
+            self.parse_simple_statement(self.statement)
+            self.next_statement()
         # for token in self.tokens:
         #     print(token.type)
 
@@ -146,13 +151,15 @@ class Parser:
 
             # Function definition statement
             case Keyword.DEF:
-                pass
+                statement = statement[1:]
+                self.parse_function_def(statement)
             # If statement
             case Keyword.IF:
                 pass
             # Class definition statementt
             case Keyword.CLASS:
-                pass
+                statement = statement[1:]
+                self.parse_class_def(statement)
             # With statement
             case Keyword.WITH:
                 pass
@@ -390,9 +397,93 @@ class Parser:
             if statement[i].type == separator:
                 res.append(statement[li:i])
                 li = i + 1
+            i += 1 
         res.append(statement[li:])
         return res
 
+    def parse_function_def(self, statement):
+        # Parse grammar function def
+        # NAME '(' [params] ')' ':' block
+
+        # Proses :
+        # [1] Split di colon, kalau hasilnya != 2 berarti syntax error
+        # [2] Skip whitespace di awal dan di akhir
+        # [3] Cek di sub_stmts[0] ada NAME sama parenthesis open dan close
+        # [4] Kalo ada params, parse_params
+        # [5] parse_block
+        
+        # TODO : check parenthesis pake stack, belum ngehandle ()), (()
+
+        sub_stmts = self.split(statement, Punctuation.COLON)
+        if (len(sub_stmts) != 2):
+            raise SyntaxError()
+
+        left = sub_stmts[0]
+        token = left[0]
+        while (token.type == Literal.WHITESPACE):
+            left = left[1:]
+            token = left[0]
+            
+        while (left[-1].type == Literal.WHITESPACE):
+            left = left[:-1]
+
+        if (token.type != Literal.NAME):
+            raise SyntaxError()
+        
+        if (len(left) > 1):
+            if (left[1].type != Punctuation.PARENTHESIS_OPEN or left[-1].type != Punctuation.PARENTHESIS_CLOSE):
+                raise SyntaxError()
+            else:
+                params_stmt = left[2:-1]
+                # self.parse_params(params_stmt)
+                print("finish parse params")
+
+        right = sub_stmts[1]
+        # self.parse_block(right)
+        print("finish parse function_def")
+
+    def parse_params(self, statement):
+        # TODO bikin parser params sama mungkin sederhanain grammar params
+        pass
+
+    def parse_class_def(self, statement):
+        # Parse grammar class_def
+        # NAME ['(' [arguments] ')' ] ':' block
+
+        # Proses :
+        # [1] Split di colon, kalau hasilnya != 2 berarti syntax error
+        # [2] Cek di sub_stmts[0] ada parenthesis open dan close
+        # [3] Kalo ada params, parse_params
+        # [4] parse_block
+
+        # TODO : check parenthesis pake stack, belum ngehandle ()), (()
+        
+        sub_stmts = self.split(statement, Punctuation.COLON)
+        if (len(sub_stmts) != 2):
+            raise SyntaxError()
+            
+        left = sub_stmts[0]
+        while (left[0].type == Literal.WHITESPACE):
+            left = left[1:]
+
+        while (left[-1].type == Literal.WHITESPACE):
+            left = left[:-1]
+            
+        if (left[0].type != Literal.NAME):
+            raise SyntaxError()
+
+        if (len(left) > 1):
+            if (left[1].type != Punctuation.PARENTHESIS_OPEN or left[-1].type != Punctuation.PARENTHESIS_CLOSE):
+                raise SyntaxError()
+            else:
+                arguments_stmt = left[1:-1]
+                if (len(arguments_stmt) != 0):
+                    # self.parse_arguments(arguments_stmt)
+                    print("finish parse arguments")
+        
+        right = sub_stmts[1]
+        # self.parse_block(right)
+        print("finish parse class")
 
 def next_as(statement, index=0):
     # @deprecated
