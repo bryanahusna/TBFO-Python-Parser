@@ -1,5 +1,4 @@
 from enum import Enum
-from os import stat
 from tokenizer import Tokenizer, Token
 from tokens import *
 
@@ -9,8 +8,9 @@ class Parser:
         self.statements = []
         self.lines = []
         self.tokens = []        # type: list[Token]
-        self.indent_stack = []
-        self.statement = []
+        self.indent_stack = []  # type: list[Indent]
+        self.statement = []     # type: list[Token]
+        self.index = 0
 
     def parse(self, filename):
         with open(filename) as f:
@@ -19,47 +19,83 @@ class Parser:
         tokenizer = Tokenizer()
         self.tokens = tokenizer.tokenize(filename)
         self.parse_indents()
+        # for token in self.tokens:
+        #     print(token.type)
 
-        self.grammar_stack = []
-        self.tries = []
-        self.try_index_trace = []
-        self.required_input = []
-        self.index = 0
+        # self.grammar_stack = []
+        # self.tries = []
+        # self.try_index_trace = []
+        # self.required_input = []
+        # self.index = 0
+        # token = self.tokens[self.index]
+        # # TODO : Ganti cara pembacaan jadi tiap satu
+        # # statement atau block
+        # while token.type != Literal.ENDMARKER:
+        #     if len(self.grammar_stack) == 0:
+        #         if len(self.required_input) == 0:
+        #             if token.type in [Keyword.PASS,
+        #                               Keyword.BREAK, Keyword.CONTINUE]:
+        #                 self.required_input.append(Literal.NEWLINE)
+        #                 token, self.index = self.skip_whitespaces(
+        #                     self.index + 1)
+        #             elif token.type == Keyword.RAISE:
+        #                 self.tries.append()
+        #             elif token.type == Keyword.IMPORT:
+        #                 self.tries.append()
+        #         else:
+        #             next = self.required_input[-1]
+        #             if token.type != next:
+        #                 raise SyntaxError()
+        #             else:
+        #                 self.required_input.pop()
+        #                 token, self.index = self.skip_whitespaces(
+        #                     self.index + 1)
+        #     else:
+        #         pass
+        # def parse(self, filename):
+        #     with open(filename) as f:
+        #         for line in f:
+        #             self.lines.append(line)
+        #     tokenizer = Tokenizer()
+        #     self.tokens = tokenizer.tokenize(filename)
+        #     self.parse_indents()
+        #     self.parse_statements()
+        #     # self.check_statements()
+        #     self.parse_block(self.statements)
+
+    def next_statement(self):
+        # type: () -> None
+        # Baca statement berikutnya sebagai list token
+        self.statement = []
         token = self.tokens[self.index]
-        # TODO : Ganti cara pembacaan jadi tiap satu
-        # statement atau block
-        while token.type != Literal.ENDMARKER:
-            if len(self.grammar_stack) == 0:
-                if len(self.required_input) == 0:
-                    if token.type in [Keyword.PASS,
-                                      Keyword.BREAK, Keyword.CONTINUE]:
-                        self.required_input.append(Literal.NEWLINE)
-                        token, self.index = self.skip_whitespaces(
-                            self.index + 1)
-                    elif token.type == Keyword.RAISE:
-                        self.tries.append()
-                    elif token.type == Keyword.IMPORT:
-                        self.tries.append()
-                else:
-                    next = self.required_input[-1]
-                    if token.type != next:
-                        raise SyntaxError()
-                    else:
-                        self.required_input.pop()
-                        token, self.index = self.skip_whitespaces(
-                            self.index + 1)
-            else:
-                pass
-                # def parse(self, filename):
-                #     with open(filename) as f:
-                #         for line in f:
-                #             self.lines.append(line)
-                #     tokenizer = Tokenizer()
-                #     self.tokens = tokenizer.tokenize(filename)
-                #     self.parse_indents()
-                #     self.parse_statements()
-                #     # self.check_statements()
-                #     self.parse_block(self.statements)
+        while token.type != Literal.NEWLINE:
+            self.statement.append(token)
+            self.index += 1
+            token = self.tokens[self.index]
+        self.statement.append(token)
+        self.index += 1
+
+    def next_block(self):
+        # type: () -> None
+        # Baca block berikutnya sebagai list token
+        indent_stack = 0
+        past = False
+        self.block = []
+        token = self.tokens[self.index]
+        while indent_stack != 0 or not past:
+            # Ignore comment, whitespaces, dan multiline string
+            if token.type not in [Literal.STRING_MULTILINE, Literal.WHITESPACE, Literal.COMMENT]:
+                if token.type == Indentation.INDENT:
+                    indent_stack += 1
+                    past = True
+                elif token.type == Indentation.DEDENT:
+                    indent_stack -= 1
+                self.block.append(token)
+                self.index += 1
+                token = self.tokens[self.index]
+
+    def has_block_next(self):
+        return self.tokens[self.index].type == Indentation.INDENT
 
     def skip_whitespaces(self, index):
         token = self.tokens[index]
@@ -82,6 +118,54 @@ class Parser:
         # TODO: Cek setiap token awal yang mungkin sebagai
         # simple_statement
 
+        match first_token.type:
+            # Ignore empty statement
+            case Literal.NEWLINE:
+                pass
+            # Single keyword statement
+            case Keyword.PASS:
+                next_token = statement
+            case Keyword.BREAK:
+                pass
+            case Keyword.CONTINUE:
+                pass
+            # Import statement
+            case Keyword.IMPORT:
+                pass
+            # Import from statement
+            case Keyword.FROM:
+                pass
+            # Raise statement
+            case Keyword.RAISE:
+                pass
+            # Return statement
+            case Keyword.RETURN:
+                pass
+            # TODO: Add assignment & star_expressions
+            # first token here
+
+            # Function definition statement
+            case Keyword.DEF:
+                pass
+            # If statement
+            case Keyword.IF:
+                pass
+            # Class definition statementt
+            case Keyword.CLASS:
+                pass
+            # With statement
+            case Keyword.WITH:
+                pass
+            # For statement
+            case Keyword.FOR:
+                pass
+            # While statement
+            case Keyword.WHILE:
+                pass
+            # Invalid first token
+            case _:
+                raise SyntaxError()
+
         if first_token.type == Literal.NEWLINE:
             pass
         elif first_token.type == Keyword.PASS:
@@ -89,7 +173,7 @@ class Parser:
 
     def parse_compound_statement(self, statement):
         # TODO: Cek setiap token awal yang mungkin sebagai
-        # simple_statement
+        # compound_statement
         pass
 
     def whitespace_only_until(self, index):
@@ -338,5 +422,5 @@ class IndentType(Enum):
     TAB = 1
 
 
-# parser = Parser()
-# parser.parse("a.py")
+parser = Parser()
+parser.parse("t.py")
