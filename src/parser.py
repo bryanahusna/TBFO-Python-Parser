@@ -12,6 +12,7 @@ class Parser:
         self.statement = []     # type: list[Token]
         self.index = 0
         self.loop_stack = []    # type: list[TokenType]
+        self.func_stack = []
 
     def parse(self, filename):
         with open(filename) as f:
@@ -140,7 +141,7 @@ class Parser:
                 pass
             # Single keyword statement
             case Keyword.PASS:
-                next_token = statement
+                pass
             case Keyword.BREAK:
                 if len(self.loop_stack) > 0:
                     next_token = statement[1]
@@ -180,14 +181,17 @@ class Parser:
                 pass
             # Return statement
             case Keyword.RETURN:
-                pass
+                if (len(self.func_stack) == 0):
+                    raise SyntaxError()
             # TODO: Add assignment & star_expressions
             # first token here
 
             # Function definition statement
             case Keyword.DEF:
+                self.func_stack.append(Keyword.DEF)
                 statement = statement[1:]
                 self.parse_function_def(statement)
+                self.func_stack.pop()
             # If statement
             case Keyword.IF:
                 self.parse_if_stmt(statement)
@@ -541,12 +545,8 @@ class Parser:
         if (len(sub_stmts) != 2):
             raise SyntaxError()
 
-        left = sub_stmts[0]
-        while (left[0].type == Literal.WHITESPACE):
-            left = left[1:]
-
-        while (left[-1].type == Literal.WHITESPACE):
-            left = left[:-1]
+        if (len(sub_stmts) > 0):
+            left = self.trim(sub_stmts[0])
 
         if (left[0].type != Literal.NAME):
             raise SyntaxError()
@@ -564,8 +564,33 @@ class Parser:
         # print("finish parse function_def")
 
     def parse_params(self, statement):
-        # TODO bikin algoritma sama mungkin sederhanain grammar params
-        pass
+        # TODO recheck algorithm
+
+        # pisah pake koma, trus cek =, ke kanan harus ada = semua
+        sub_stmt = self.split(statement, Punctuation.COMMA)
+        equalSign = False
+        for stmt in sub_stmt:
+            new_stmt = self.split(stmt, Operator.ASSIGNMENT)
+            if (len(new_stmt) > 1):
+                equalSign = True
+
+            left = new_stmt[0]
+            if (len(left) > 0):
+                left = self.trim(left)
+            
+            if (len(left)>1 or (len(left)==1 and left[0].type != Literal.NAME)):
+                raise SyntaxError()
+
+            if (equalSign):
+                if (len(new_stmt) != 2):
+                    raise SyntaxError
+                if (len(new_stmt[-1]) > 0):
+                    right = self.trim(new_stmt[-1])
+                    self.parse_expression(right)
+                else:
+                    raise SyntaxError()
+        
+        print("finish parse params")
 
     def parse_class_def(self, statement):
         # Parse grammar class_def
@@ -583,12 +608,8 @@ class Parser:
         if (len(sub_stmts) != 2):
             raise SyntaxError()
 
-        left = sub_stmts[0]
-        while (left[0].type == Literal.WHITESPACE):
-            left = left[1:]
-
-        while (left[-1].type == Literal.WHITESPACE):
-            left = left[:-1]
+        if (len(sub_stmts) > 0):
+            left = self.trim(sub_stmts[0])
 
         if (left[0].type != Literal.NAME):
             raise SyntaxError()
@@ -597,7 +618,7 @@ class Parser:
             if (left[1].type != Punctuation.PARENTHESIS_OPEN or left[-1].type != Punctuation.PARENTHESIS_CLOSE):
                 raise SyntaxError()
             else:
-                arguments_stmt = left[1:-1]
+                arguments_stmt = left[2:-1]
                 if (len(arguments_stmt) != 0):
                     self.parse_arguments(arguments_stmt)
                     # print("finish parse arguments")
@@ -614,14 +635,37 @@ class Parser:
         for stmt in statements:
             self.parse_args(stmt)
         
-        print("finish parse arguments")
+        # print("finish parse arguments")
     
     def parse_args(self, statement):
         # ','.(starred_expression | ( assignment_expression | expression !':=') !'=')+ [',' kwargs ]
         # kwargs
 
         # TODO : bikin algoritma
-        pass
+        sub_stmt = self.split(statement, Punctuation.COMMA)
+        equalSign = False
+        for stmt in sub_stmt:
+            new_stmt = self.split(stmt, Operator.ASSIGNMENT)
+            if (len(new_stmt) > 1):
+                equalSign = True
+
+            left = new_stmt[0]
+            if (len(left) > 0):
+                left = self.trim(left)
+            
+            if (len(left)>1 or (len(left)==1 and left[0].type != Literal.NAME)):
+                raise SyntaxError()
+
+            if (equalSign):
+                if (len(new_stmt) != 2):
+                    raise SyntaxError
+                if (len(new_stmt[-1]) > 0):
+                    right = self.trim(new_stmt[-1])
+                    self.parse_expression(right)
+                else:
+                    raise SyntaxError()
+        
+        # print("finish parse args")
 
     def parse_with_stmt(self, statement):
         # 'with' '(' ','.with_item+ ','? ')' ':' block
@@ -633,12 +677,7 @@ class Parser:
         if (len(sub_stmts) != 2):
             raise SyntaxError()
 
-        left = sub_stmts[0]
-        while (left[0].type == Literal.WHITESPACE):
-            left = left[1:]
-
-        while (left[-1].type == Literal.WHITESPACE):
-            left = left[:-1]
+        left = self.trim(sub_stmts[0])
 
         if (left[1].type != Punctuation.PARENTHESIS_OPEN == left[-1].type != Punctuation.PARENTHESIS_CLOSE):
             raise SyntaxError()
@@ -650,15 +689,26 @@ class Parser:
             self.parse_with_item(with_item)
         
         # parse block
-        self.parse_block(sub_stmts[0])        
+        self.parse_block(sub_stmts[-1])        
         # print("finish parse with_stmt")
 
     def parse_with_item(self, statement):
-        # expression 'as' star_target &(',' | ')' | ':')
+        # expression 'as' star_target
         # expression
+
+        # TODO : recheck algorithm
+        sub_stmt = self.split(statement, Keyword.AS)
+        if (len(sub_stmt) == 2):
+            # masuk ke cabang pertama
+            self.parse_expression(sub_stmt[0])
+            self.parse_star_target(sub_stmt[1])
+        elif (len(sub_stmt) == 1) :
+            # masuk ke cabang kedua
+            self.parse_expression(statement)
+        else:
+            raise SyntaxError()
         
-        # TODO bikin algoritma
-        pass
+        print("finish parse with item")
 
     def parse_if_stmt(self, statement):
         token = statement[0]
@@ -808,6 +858,9 @@ class Parser:
         else:
             self.index = cindex
 
+    def parse_star_terget(self,statement):
+        pass
+
     def parse_star_targets(self, statement):
         pass
 
@@ -880,4 +933,4 @@ class IndentType(Enum):
 
 
 parser = Parser()
-parser.parse("a.py")
+parser.parse("c.py")
