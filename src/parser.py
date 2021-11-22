@@ -362,11 +362,62 @@ class Parser:
             sub_stmts = self.split(statement[i:], Keyword.IMPORT)
             if len(sub_stmts) != 2:
                 raise SyntaxError()
+            sub_stmts[0] = self.trim(sub_stmts[0])
             self.parse_dotted_name(sub_stmts[0])
             self.parse_import_from_targets(sub_stmts[1])
+        else:
+            i += 1
+            token = statement[i]
+            if token.type != Literal.WHITESPACE:
+                raise SyntaxError()
+            self.parse_import_from_targets(statement[i + 1:])
 
     def parse_import_from_targets(self, statement):
-        pass
+        statement = self.trim(statement)
+        first_token = statement[0]
+        match first_token.type:
+            case Operator.MULTIPLICATION:
+                token = statement[1]
+                if token.type != Literal.NEWLINE:
+                    raise SyntaxError()
+            case Punctuation.PARENTHESIS_OPEN:
+                last_token = statement[-2]
+                if last_token.type != Punctuation.PARENTHESIS_CLOSE:
+                    raise SyntaxError()
+                last = -2
+                if statement[last - 1] == Literal.WHITESPACE:
+                    last -= 1
+                if statement[last - 1] == Punctuation.COMMA:
+                    last -= 1
+                sub_stmt = statement[1:last]
+                self.parse_import_from_as_names(sub_stmt)
+            case _:
+                if statement[-2].type == Punctuation.COMMA:
+                    raise SyntaxError()
+                self.parse_import_from_as_names(statement[1:-1])
+
+    def parse_import_from_as_names(self, statement):
+        statement = self.trim(statement)
+        sub_stmts = self.split(statement, Punctuation.COMMA)
+        for sub_stmt in sub_stmts:
+            self.parse_import_from_as_name(sub_stmt)
+
+    def parse_import_from_as_name(self, statement):
+        statement = self.trim(statement)
+        first_token = statement[0]
+        if first_token.type != Literal.NAME:
+            raise SyntaxError()
+        if len(statement) > 1:
+            if len(statement) != 5:
+                raise SyntaxError()
+            if statement[1].type != Literal.WHITESPACE:
+                raise SyntaxError()
+            if statement[2].type != Keyword.AS:
+                raise SyntaxError()
+            if statement[3].type != Literal.WHITESPACE:
+                raise SyntaxError()
+            if statement[4].type != Literal.NAME:
+                raise SyntaxError()
 
     def parse_dotted_as_name(self, statement):
         # type: (list[Token]) -> None
@@ -409,7 +460,6 @@ class Parser:
         #     next & goto [1]
 
         # TODO : Recheck algoritma
-
         sub_stmts = self.split(statement, Punctuation.ACCESSOR)
         for stmt in sub_stmts:
             if len(stmt) != 1:
@@ -539,7 +589,7 @@ class Parser:
             self.parse_simple_statement(sub_stmts[1][first_token_index:])
         cindex = self.index
         self.next_statement()
-        statement = self.trim_left_whitespace(self.statement)
+        statement = self.trim_left(self.statement)
         first_token = statement[0]
         if first_token.type == Keyword.ELIF:
             self.parse_elif_stmt(statement)
@@ -569,7 +619,7 @@ class Parser:
             self.parse_simple_statement(sub_stmts[1][first_token_index:])
         cindex = self.index
         self.next_statement()
-        statement = self.trim_left_whitespace(self.statement)
+        statement = self.trim_left(self.statement)
         first_token = statement[0]
         if first_token.type == Keyword.ELIF:
             self.parse_elif_stmt(statement)
@@ -609,7 +659,16 @@ class Parser:
     def parse_named_expression(self, statement):
         pass
 
-    def trim_left_whitespace(self, statement):
+    def trim(self, statement):
+        start = 0
+        end = len(statement)
+        if statement[start].type == Literal.WHITESPACE:
+            start = 1
+        if statement[end - 1].type == Literal.WHITESPACE:
+            end -= 1
+        return statement[start:end]
+
+    def trim_left(self, statement):
         token = statement[0]
         i = 0
         while token.type == Literal.WHITESPACE and i < len(statement):
@@ -646,5 +705,5 @@ class IndentType(Enum):
     TAB = 1
 
 
-parser = Parser()
-parser.parse("t.py")
+# parser = Parser()
+# parser.parse("a.py")
