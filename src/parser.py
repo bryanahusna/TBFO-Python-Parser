@@ -342,7 +342,11 @@ class Parser:
             i += 1
 
         stmt_slice = statement[i:]
-        sub_stmts = self.split(stmt_slice, Punctuation.COMMA)
+        self.parse_dotted_as_names(stmt_slice)
+
+    def parse_dotted_as_names(self, statement):
+        statement = self.trim(statement[:-1])
+        sub_stmts = self.split(statement, Punctuation.COMMA)
         for sub_stmt in sub_stmts:
             self.parse_dotted_as_name(sub_stmt)
 
@@ -438,18 +442,20 @@ class Parser:
         # [2] Jika mengandung lebih dari 2 token, cek token opsional [...],
         # kemudian trim dan parse sisa token sebagai dotted_name
 
-        # TODO : Recheck algoritma
-
         sub_stmts = self.split(statement, Keyword.AS)
-        if len(sub_stmts) != 2:
+        if len(sub_stmts) > 2:
             raise SyntaxError()
-        [dotted_name, name] = sub_stmts
-        if len(name) != 1:
-            raise SyntaxError()
-        name = name[0]
-        if name.type != Literal.NAME:
-            raise SyntaxError()
-        self.parse_dotted_name(dotted_name)
+        if len(sub_stmts) == 2:
+            [dotted_name, name] = sub_stmts
+            name = self.trim(name)
+            if len(name) != 1:
+                raise SyntaxError()
+            name = name[0]
+            if name.type != Literal.NAME:
+                raise SyntaxError()
+            self.parse_dotted_name(dotted_name)
+        else:
+            self.parse_dotted_name(statement)
 
     def parse_dotted_name(self, statement):
         # type: (list[Token]) -> None
@@ -464,7 +470,7 @@ class Parser:
         # [3] Cek tipe token saat ini adalah Punctuation.ACCESSOR,
         #     next & goto [1]
 
-        # TODO : Recheck algoritma
+        statement = self.trim(statement)
         sub_stmts = self.split(statement, Punctuation.ACCESSOR)
         for stmt in sub_stmts:
             if len(stmt) != 1:
@@ -710,5 +716,5 @@ class IndentType(Enum):
     TAB = 1
 
 
-parser = Parser()
-parser.parse("a.py")
+# parser = Parser()
+# parser.parse("a.py")
