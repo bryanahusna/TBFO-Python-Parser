@@ -1,5 +1,4 @@
 from enum import Enum
-from os import stat
 from tokenizer import Tokenizer, Token
 from tokens import *
 
@@ -12,6 +11,7 @@ class Parser:
         self.indent_stack = []  # type: list[Indent]
         self.statement = []     # type: list[Token]
         self.index = 0
+        self.loop_stack = []    # type: list[TokenType]
 
     def parse(self, filename):
         with open(filename) as f:
@@ -142,9 +142,33 @@ class Parser:
             case Keyword.PASS:
                 next_token = statement
             case Keyword.BREAK:
-                pass
+                if len(self.loop_stack) > 0:
+                    next_token = statement[1]
+                    if next_token.type == Literal.NEWLINE:
+                        pass
+                    elif next_token.type == Literal.WHITESPACE:
+                        next_token = statement[2]
+                    else:
+                        raise SyntaxError("Unexpected token")
+                    if next_token.type != Literal.NEWLINE:
+                        raise SyntaxError("Unexpected token")
+                else:
+                    raise SyntaxError(
+                        "break keyword must be placed in a loop statement.")
             case Keyword.CONTINUE:
-                pass
+                if len(self.loop_stack) > 0:
+                    next_token = statement[1]
+                    if next_token.type == Literal.NEWLINE:
+                        pass
+                    elif next_token.type == Literal.WHITESPACE:
+                        next_token = statement[2]
+                    else:
+                        raise SyntaxError("Unexpected token")
+                    if next_token.type != Literal.NEWLINE:
+                        raise SyntaxError("Unexpected token")
+                else:
+                    raise SyntaxError(
+                        "continue keyword must be placed in a loop statement.")
             # Import statement
             case Keyword.IMPORT:
                 self.parse_import_stmt(statement)
@@ -176,10 +200,14 @@ class Parser:
                 pass
             # For statement
             case Keyword.FOR:
-                pass
+                self.loop_stack.append(Keyword.FOR)
+                self.parse_while_stmt(statement)
+                self.loop_stack.pop()
             # While statement
             case Keyword.WHILE:
-                pass
+                self.loop_stack.append(Keyword.WHILE)
+                self.parse_while_stmt(statement)
+                self.loop_stack.pop()
             # Invalid first token
             case _:
                 raise SyntaxError()
@@ -661,6 +689,78 @@ class Parser:
         else:
             self.parse_simple_statement(statement[i:])
 
+    def parse_while_stmt(self, statement):
+        token = statement[0]
+        if token.type != Keyword.WHILE:
+            raise SyntaxError()
+        sub_stmts = self.split(statement[2:], Punctuation.COLON)
+        if len(sub_stmts) != 2:
+            raise SyntaxError()
+        self.parse_named_expression(sub_stmts[0])
+
+        block_first_token = sub_stmts[1][0]
+        first_token_index = 0
+        if block_first_token.type == Literal.WHITESPACE:
+            block_first_token = sub_stmts[1][1]
+            first_token_index = 1
+        if block_first_token.type == Literal.NEWLINE:
+            self.next_block()
+            self.parse_block(self.block)
+        else:
+            self.parse_simple_statement(sub_stmts[1][first_token_index:])
+
+        cindex = self.index
+        self.next_statement()
+        statement = self.trim_left(self.statement)
+        first_token = statement[0]
+        if first_token.type == Keyword.ELSE:
+            self.parse_else_stmt(statement)
+        else:
+            self.index = cindex
+
+    def parse_for_stmt(self, statement):
+        token = statement[0]
+        if token.type != Keyword.FOR:
+            raise SyntaxError()
+        sub_stmts = self.split(statement[2:], Punctuation.COLON)
+        if len(sub_stmts) != 2:
+            raise SyntaxError()
+
+        left_sub_stmts = self.split(sub_stmts[0], Keyword.IN)
+        if len(left_sub_stmts) < 2:
+            raise SyntaxError()
+        star_targets = left_sub_stmts[0]
+        star_targets_tokens = len(star_targets)
+        star_expressions = left_sub_stmts[star_targets_tokens:]
+        self.parse_star_targets(star_targets)
+        self.parse_star_expressions(star_expressions)
+
+        block_first_token = sub_stmts[1][0]
+        first_token_index = 0
+        if block_first_token.type == Literal.WHITESPACE:
+            block_first_token = sub_stmts[1][1]
+            first_token_index = 1
+        if block_first_token.type == Literal.NEWLINE:
+            self.next_block()
+            self.parse_block(self.block)
+        else:
+            self.parse_simple_statement(sub_stmts[1][first_token_index:])
+
+        cindex = self.index
+        self.next_statement()
+        statement = self.trim_left(self.statement)
+        first_token = statement[0]
+        if first_token.type == Keyword.ELSE:
+            self.parse_else_stmt(statement)
+        else:
+            self.index = cindex
+
+    def parse_star_targets(self, statement):
+        pass
+
+    def parse_star_expressions(self, statement):
+        pass
+
     def parse_empty_stmt(self, statement):
         if len(statement) > 2:
             raise SyntaxError()
@@ -668,6 +768,16 @@ class Parser:
             raise SyntaxError()
 
     def parse_named_expression(self, statement):
+        statement = self.trim(statement)
+        try:
+            self.parse_assignment_expression(statement)
+        except:
+            self.parse_expression(statement)
+
+    def parse_assignment_expression(self, statement):
+        pass
+
+    def parse_expression(self, statement):
         pass
 
     def trim(self, statement):
@@ -716,5 +826,5 @@ class IndentType(Enum):
     TAB = 1
 
 
-# parser = Parser()
-# parser.parse("a.py")
+parser = Parser()
+parser.parse("a.py")
