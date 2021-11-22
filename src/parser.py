@@ -20,12 +20,23 @@ class Parser:
                 self.lines.append(line)
         tokenizer = Tokenizer()
         self.tokens = tokenizer.tokenize(filename)
-        self.parse_indents()
+        for token in self.tokens:
+            print(token.type)
+
         self.next_statement()
-        while self.statement[-1].type != Literal.ENDMARKER:
-            self.parse_simple_statement(self.statement)
+        while(self.index < len(self.tokens)-1):
+            print(len(self.tokens))
+            print(self.parse_expression(0))     # Dimulai dari token ke 0 di statement
             self.next_statement()
-        self.parse_simple_statement(self.statement[:-1])
+        print(self.parse_expression(0))
+
+        # self.parse_indents()
+        # self.next_statement()
+        # while self.statement[-1].type != Literal.ENDMARKER:
+        #     self.parse_simple_statement(self.statement)
+        #     self.next_statement()
+        # self.parse_simple_statement(self.statement[:-1])
+
         # for token in self.tokens:
         #     print(token.type)
 
@@ -297,6 +308,115 @@ class Parser:
         for indent in indents:
             l += indent.value
         return l
+
+    def parse_expression(self, currentStatementIndex):
+        # Return tuple (Boolean, currentStatementIndex), True jika ekspresi valid, False jika tidak
+        # Final State: dievaluasi sampai baris atau jika masih ada kurung tetap
+        token = self.statement[currentStatementIndex]
+        if(len(self.statement) == 1 and (token.type == Literal.NEWLINE or Literal.ENDMARKER)):
+            return (True, 1)
+        while(token.type == Literal.WHITESPACE):
+            currentStatementIndex += 1
+            token = self.statement[currentStatementIndex]
+        if(token.type == Literal.NEWLINE or token.type == Literal.ENDMARKER):
+            return (False, currentStatementIndex)
+        
+        bracketstack = []
+        numberstack = []
+        operatorstack = []
+        previoustoken = None
+        while(len(bracketstack) > 0 or (token.type != Literal.NEWLINE and token.type != Literal.ENDMARKER)):
+            print(token.type.name)
+            if(token.type == Literal.WHITESPACE or token.type == Literal.NEWLINE):
+                pass
+            elif(len(bracketstack) > 0 and token.type == Literal.ENDMARKER):
+                return (False, currentStatementIndex)
+            
+            elif(token.type == Literal.NUMBER or token.type == Literal.NAME or token.type == Keyword.TRUE or token.type == Keyword.FALSE or token.type == Keyword.NONE):
+                if(len(numberstack) == 0):
+                    numberstack.append(token)
+                    if(len(operatorstack) > 0 and self.isUnaryOperator(operatorstack[-1])):
+                        operatorstack.pop()
+                else:
+                    if(len(operatorstack) == 0 and len(numberstack) > 0):
+                        return (False, currentStatementIndex)
+                    else:
+                        operator = operatorstack.pop()
+                        while(self.isUnaryOperator(operator)):
+                            operatorprev = operator
+                            operator = operatorstack.pop()
+                            if(self.isUnaryOperator(operator) and (operatorprev.type != operator.type)):
+                                return (False, currentStatementIndex)
+                
+            elif(self.isBinaryOperator(token)):
+                if(len(numberstack) == 0):
+                    return (False, currentStatementIndex)
+                else:
+                    operatorstack.append(token)
+            elif(self.isUnaryOperator(token)):
+                operatorstack.append(token)
+            
+            elif(token.type == Punctuation.PARENTHESIS_OPEN):
+                bracketstack.append(Punctuation.PARENTHESIS_OPEN)
+            elif(token.type == Punctuation.BRACKET_OPEN):
+                bracketstack.append(Punctuation.BRACKET_OPEN)
+            elif(token.type == Punctuation.SQUARE_BRACKET_OPEN):
+                bracketstack.append(Punctuation.SQUARE_BRACKET_OPEN)
+            
+            elif(token.type == Punctuation.PARENTHESIS_CLOSE):
+                if(len(bracketstack) == 0 or bracketstack[-1] != Punctuation.PARENTHESIS_OPEN):
+                    return (False, currentStatementIndex)
+                else:
+                    bracketstack.pop()
+            elif(token.type == Punctuation.BRACKET_CLOSE):
+                if(len(bracketstack) == 0 or bracketstack[-1] != Punctuation.BRACKET_OPEN):
+                    return (False, currentStatementIndex)
+                else:
+                    bracketstack.pop()
+            elif(token.type == Punctuation.SQUARE_BRACKET_CLOSE):
+                if(len(bracketstack) == 0 or bracketstack[-1] != Punctuation.SQUARE_BRACKET_OPEN):
+                    return (False, currentStatementIndex)
+                else:
+                    bracketstack.pop()
+
+            if(currentStatementIndex == len(self.statement)-1):
+                currentStatementIndex = 0
+                self.next_statement()
+            else:
+                currentStatementIndex += 1
+                #self.index += 1
+            if(token.type != Literal.WHITESPACE and token.type != Literal.NEWLINE):
+                previoustoken = token
+            token = self.statement[currentStatementIndex]
+
+        if(len(operatorstack) > 0):
+            return (False, currentStatementIndex)
+        return (True, currentStatementIndex)
+
+    def isUnaryOperator(self, token):
+        if(token.type == Keyword.NOT or token.type == Operator.BITWISE_NOT):
+            return True
+        else:
+            return False
+
+    def isBinaryOperator(self, token):
+        if(token.type == Keyword.AND or token.type == Keyword.OR):
+            return True
+
+        if(token.type == Operator.EQUAL or token.type == Operator.NOT_EQUAL or token.type == Operator.LESS_EQUAL or 
+           token.type == Operator.LESS_THAN or token.type == Operator.GREATER_EQUAL or token.type == Operator.GREATER_THAN):
+            return True
+        
+        if(token.type == Operator.BITWISE_OR or token.type == Operator.BITWISE_XOR or token.type == Operator.BITWISE_LEFT_SHIFT or
+           token.type == Operator.BITWISE_RIGHT_SHIFT):
+           return True
+        
+        if(token.type == Operator.ADDITION or token.type == Operator.SUBTRACTION or token.type == Operator.MULTIPLICATION or
+           token.type == Operator.DIVISION or token.type == Operator.FLOOR_DIVISION or token.type == Operator.MODULUS or token.type == Operator.EXPONENTIATION):
+           return True
+        
+        return False
+        
 
     def parse_statements(self):
         # @deprecated
@@ -883,8 +1003,8 @@ class Parser:
     def parse_assignment_expression(self, statement):
         pass
 
-    def parse_expression(self, statement):
-        pass
+    #def parse_expression(self, statement):
+    #    pass
 
     def trim(self, statement):
         start = 0
@@ -933,4 +1053,4 @@ class IndentType(Enum):
 
 
 parser = Parser()
-parser.parse("c.py")
+parser.parse("test.py")
