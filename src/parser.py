@@ -21,9 +21,10 @@ class Parser:
         self.tokens = tokenizer.tokenize(filename)
         self.parse_indents()
         self.next_statement()
-        while self.statement[0].type != Literal.ENDMARKER:
+        while self.statement[-1].type != Literal.ENDMARKER:
             self.parse_simple_statement(self.statement)
             self.next_statement()
+        self.parse_simple_statement(self.statement[:-1])
         # for token in self.tokens:
         #     print(token.type)
 
@@ -73,7 +74,7 @@ class Parser:
         # Baca statement berikutnya sebagai list token
         self.statement = []
         token = self.tokens[self.index]
-        while token.type != Literal.NEWLINE:
+        while token.type != Literal.NEWLINE and token.type != Literal.ENDMARKER:
             self.statement.append(token)
             self.index += 1
             token = self.tokens[self.index]
@@ -124,6 +125,10 @@ class Parser:
             self.parse_simple_statement(self.statment)
 
     def parse_simple_statement(self, statement):
+        # ENDMARKER only statement
+        if len(statement) == 0:
+            return
+
         first_token = statement[0]      # type: Token
 
         # TODO: Cek setiap token awal yang mungkin sebagai
@@ -385,16 +390,16 @@ class Parser:
                 if last_token.type != Punctuation.PARENTHESIS_CLOSE:
                     raise SyntaxError()
                 last = -2
-                if statement[last - 1] == Literal.WHITESPACE:
+                if statement[last - 1].type == Literal.WHITESPACE:
                     last -= 1
-                if statement[last - 1] == Punctuation.COMMA:
+                if statement[last - 1].type == Punctuation.COMMA:
                     last -= 1
                 sub_stmt = statement[1:last]
                 self.parse_import_from_as_names(sub_stmt)
             case _:
                 if statement[-2].type == Punctuation.COMMA:
                     raise SyntaxError()
-                self.parse_import_from_as_names(statement[1:-1])
+                self.parse_import_from_as_names(statement[:-1])
 
     def parse_import_from_as_names(self, statement):
         statement = self.trim(statement)
@@ -705,5 +710,5 @@ class IndentType(Enum):
     TAB = 1
 
 
-# parser = Parser()
-# parser.parse("a.py")
+parser = Parser()
+parser.parse("a.py")
