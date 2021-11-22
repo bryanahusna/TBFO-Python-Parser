@@ -88,8 +88,8 @@ class Parser:
         self.block = []
         token = self.tokens[self.index]
         while indent_stack != 0 or not past:
-            # Ignore comment, whitespaces, dan multiline string
-            if token.type not in [Literal.STRING_MULTILINE, Literal.WHITESPACE, Literal.COMMENT]:
+            # Ignore comment
+            if token.type != Literal.COMMENT:
                 if token.type == Indentation.INDENT:
                     indent_stack += 1
                     past = True
@@ -109,13 +109,19 @@ class Parser:
             token = self.tokens[index]
         return token, index
 
-    def parse_block(self, block, index=[0]):
-        for i in range(len(block)):
-            statement = block[i]
-            if self.statement_type(statement) == "block":
-                self.parse_block(statement)
-            else:
-                self.parse_simple_statement(statement)
+    def parse_block(self, block):
+        indent_stack = 0
+        past = False
+        while indent_stack != 0 or not past:
+            self.next_statement()
+            if self.statement[0].type == Indentation.INDENT:
+                indent_stack += 1
+                past = True
+            elif self.statement[0].type == Indentation.DEDENT:
+                while self.statement[0].type == Indentation.DEDENT:
+                    indent_stack -= 1
+                    self.statement = self.statement[1:]
+            self.parse_simple_statement(self.statment)
 
     def parse_simple_statement(self, statement):
         first_token = statement[0]      # type: Token
@@ -136,10 +142,10 @@ class Parser:
                 pass
             # Import statement
             case Keyword.IMPORT:
-                pass
+                self.parse_import_stmt(statement)
             # Import from statement
             case Keyword.FROM:
-                pass
+                self.parse_import_from_stmt(statement)
             # Raise statement
             case Keyword.RAISE:
                 pass
@@ -155,7 +161,7 @@ class Parser:
                 self.parse_function_def(statement)
             # If statement
             case Keyword.IF:
-                pass
+                self.parse_if_stmt(statement)
             # Class definition statementt
             case Keyword.CLASS:
                 statement = statement[1:]
@@ -323,7 +329,7 @@ class Parser:
 
         token = statement[0]
         i = 1
-        while token.type == Keyword.IMPORT:
+        while token.type != Keyword.IMPORT:
             if token.type not in [Literal.WHITESPACE, Indentation.INDENT,
                                   Indentation.DEDENT]:
                 raise SyntaxError()
@@ -334,6 +340,33 @@ class Parser:
         sub_stmts = self.split(stmt_slice, Punctuation.COMMA)
         for sub_stmt in sub_stmts:
             self.parse_dotted_as_name(sub_stmt)
+
+    def parse_import_from_stmt(self, statement):
+        token = statement[0]
+        if token.type != Keyword.FROM:
+            raise SyntaxError()
+        token = statement[1]
+        if token.type != Literal.WHITESPACE:
+            raise SyntaxError()
+        token = statement[2]
+        i = 2
+        while token.type in [Punctuation.ACCESSOR, Literal.ELLIPSIS]:
+            i += 1
+            token = statement[i]
+            if (token.type != Literal.WHITESPACE):
+                raise SyntaxError()
+            i += 1
+            token = statement[i]
+        token = statement[i]
+        if token.type != Keyword.IMPORT:
+            sub_stmts = self.split(statement[i:], Keyword.IMPORT)
+            if len(sub_stmts) != 2:
+                raise SyntaxError()
+            self.parse_dotted_name(sub_stmts[0])
+            self.parse_import_from_targets(sub_stmts[1])
+
+    def parse_import_from_targets(self, statement):
+        pass
 
     def parse_dotted_as_name(self, statement):
         # type: (list[Token]) -> None
@@ -397,7 +430,7 @@ class Parser:
             if statement[i].type == separator:
                 res.append(statement[li:i])
                 li = i + 1
-            i += 1 
+            i += 1
         res.append(statement[li:])
         return res
 
@@ -411,7 +444,7 @@ class Parser:
         # [3] Cek di sub_stmts[0] ada NAME sama parenthesis open dan close
         # [4] Kalo ada params, parse_params
         # [5] parse_block
-        
+
         # TODO : check parenthesis pake stack, belum ngehandle ()), (()
 
         sub_stmts = self.split(statement, Punctuation.COLON)
@@ -423,13 +456,13 @@ class Parser:
         while (token.type == Literal.WHITESPACE):
             left = left[1:]
             token = left[0]
-            
+
         while (left[-1].type == Literal.WHITESPACE):
             left = left[:-1]
 
         if (token.type != Literal.NAME):
             raise SyntaxError()
-        
+
         if (len(left) > 1):
             if (left[1].type != Punctuation.PARENTHESIS_OPEN or left[-1].type != Punctuation.PARENTHESIS_CLOSE):
                 raise SyntaxError()
@@ -457,18 +490,18 @@ class Parser:
         # [4] parse_block
 
         # TODO : check parenthesis pake stack, belum ngehandle ()), (()
-        
+
         sub_stmts = self.split(statement, Punctuation.COLON)
         if (len(sub_stmts) != 2):
             raise SyntaxError()
-            
+
         left = sub_stmts[0]
         while (left[0].type == Literal.WHITESPACE):
             left = left[1:]
 
         while (left[-1].type == Literal.WHITESPACE):
             left = left[:-1]
-            
+
         if (left[0].type != Literal.NAME):
             raise SyntaxError()
 
@@ -480,10 +513,110 @@ class Parser:
                 if (len(arguments_stmt) != 0):
                     # self.parse_arguments(arguments_stmt)
                     print("finish parse arguments")
-        
+
         right = sub_stmts[1]
         # self.parse_block(right)
         print("finish parse class")
+
+    def parse_if_stmt(self, statement):
+        token = statement[0]
+        if token.type != Keyword.IF:
+            raise SyntaxError()
+        sub_stmts = self.split(statement[2:], Punctuation.COLON)
+        if len(sub_stmts) != 2:
+            raise SyntaxError()
+        self.parse_named_expression(sub_stmts[0])
+
+        block_first_token = sub_stmts[1][0]
+        first_token_index = 0
+        if block_first_token.type == Literal.WHITESPACE:
+            block_first_token = sub_stmts[1][1]
+            first_token_index = 1
+        if block_first_token.type == Literal.NEWLINE:
+            self.next_block()
+            self.parse_block(self.block)
+        else:
+            self.parse_simple_statement(sub_stmts[1][first_token_index:])
+        cindex = self.index
+        self.next_statement()
+        statement = self.trim_left_whitespace(self.statement)
+        first_token = statement[0]
+        if first_token.type == Keyword.ELIF:
+            self.parse_elif_stmt(statement)
+        elif first_token.type == Keyword.ELSE:
+            self.parse_else_stmt(statement)
+        else:
+            self.index = cindex
+
+    def parse_elif_stmt(self, statement):
+        token = statement[0]
+        if token.type != Keyword.ELIF:
+            raise SyntaxError()
+        sub_stmts = self.split(statement[2:], Punctuation.COLON)
+        if len(sub_stmts) != 2:
+            raise SyntaxError()
+        self.parse_named_expression(sub_stmts[0])
+
+        block_first_token = sub_stmts[1][0]
+        first_token_index = 0
+        if block_first_token.type == Literal.WHITESPACE:
+            block_first_token = sub_stmts[1][1]
+            first_token_index = 1
+        if block_first_token.type == Literal.NEWLINE:
+            self.next_block()
+            self.parse_block(self.block)
+        else:
+            self.parse_simple_statement(sub_stmts[1][first_token_index:])
+        cindex = self.index
+        self.next_statement()
+        statement = self.trim_left_whitespace(self.statement)
+        first_token = statement[0]
+        if first_token.type == Keyword.ELIF:
+            self.parse_elif_stmt(statement)
+        elif first_token.type == Keyword.ELSE:
+            self.parse_else_stmt(statement)
+        else:
+            self.index = cindex
+
+    def parse_else_stmt(self, statement):
+        i = 0
+        token = statement[i]
+        if token.type != Keyword.ELSE:
+            raise SyntaxError()
+        i += 1
+        token = statement[i]
+        if token.type == Literal.WHITESPACE:
+            i += 1
+            token = statement[i]
+        if token.type != Punctuation.COLON:
+            raise SyntaxError()
+        i += 1
+        if token.type == Literal.WHITESPACE:
+            i += 1
+            token = statement[i]
+        if token.type == Literal.NEWLINE:
+            self.next_block()
+            self.parse_block(self.block)
+        else:
+            self.parse_simple_statement(statement[i:])
+
+    def parse_empty_stmt(self, statement):
+        if len(statement) > 2:
+            raise SyntaxError()
+        if len(statement) == 2 and statement[0].type != Literal.WHITESPACE:
+            raise SyntaxError()
+
+    def parse_named_expression(self, statement):
+        pass
+
+    def trim_left_whitespace(self, statement):
+        token = statement[0]
+        i = 0
+        while token.type == Literal.WHITESPACE and i < len(statement):
+            i += 1
+            token = statement[i]
+        return statement[i:]
+
 
 def next_as(statement, index=0):
     # @deprecated
