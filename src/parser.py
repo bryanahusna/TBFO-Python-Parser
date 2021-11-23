@@ -257,11 +257,8 @@ class Parser:
                     self.throw(first_token.starts_at,
                                "Syntax Error : return keyword must be place inside a function.")
             # Assignment/expression statement
-            case Literal.NAME:
-                try:
-                    self.parse_assignment(statement)
-                except:
-                    self.parse_expression(statement)
+            #case Literal.NAME:
+            # Assignment dan expression dipindahkan ke case default   
             # Function definition statement
             case Keyword.DEF:
                 self.func_stack.append(Keyword.DEF)
@@ -291,8 +288,12 @@ class Parser:
                 self.loop_stack.pop()
             # Invalid first token
             case _:
-                self.throw(first_token.starts_at,
-                           "Syntax Error : Unexpected statement first token.")
+                try:
+                    self.parse_assignment(statement)
+                except:
+                    self.parse_expression(statement)
+                #self.throw(first_token.starts_at,
+                #           "Syntax Error : Unexpected statement first token.")
 
     def whitespace_only_until(self, index):
         statement = self.statement
@@ -423,8 +424,7 @@ class Parser:
         isvalid = self.parse_assignment_augmented(statement)
         if(isvalid):
             return
-        self.throw(statement[0].starts_at,
-                   "Syntax Error : Invalid assignment syntax.")
+        raise SyntaxError("Invalid assignment")
 
     def parse_assignment_simple(self, statement):
         namecount = 0
@@ -552,96 +552,18 @@ class Parser:
             i += 1
         token = statement[i]
         if(token.type == Literal.NEWLINE or token.type == Literal.ENDMARKER):
-            return False
+            return (False, token)
 
-        bracketstack = []
-        numberstack = []
-        operatorstack = []
-        previoustoken = None
-        while(i < n):
-            token = statement[i]
-            # print(token.type.name)
-            if(token.type == Literal.WHITESPACE or token.type == Literal.NEWLINE):
-                pass
-            elif(len(bracketstack) > 0 and token.type == Literal.ENDMARKER):
-                return False
-
-            elif(token.type == Literal.NUMBER or token.type == Literal.NAME or token.type == Literal.STRING or token.type == Literal.STRING_MULTILINE or
-                 token.type == Keyword.TRUE or token.type == Keyword.FALSE or token.type == Keyword.NONE):
-                if(len(numberstack) == 0):
-                    numberstack.append(token)
-                    if(len(operatorstack) > 0 and self.isUnaryOperator(operatorstack[-1])):
-                        operatorstack.pop()
-                else:
-                    if(len(operatorstack) == 0 and len(numberstack) > 0):
-                        return False
-                    else:
-                        operator = operatorstack.pop()
-                        while(self.isUnaryOperator(operator)):
-                            operatorprev = operator
-                            operator = operatorstack.pop()
-                            if(self.isUnaryOperator(operator) and (operatorprev.type != operator.type)):
-                                return False
-
-            elif(self.isBinaryOperator(token)):
-                if(len(numberstack) == 0):
-                    return False
-                else:
-                    operatorstack.append(token)
-            elif(self.isUnaryOperator(token)):
-                operatorstack.append(token)
-
-            elif(token.type == Punctuation.PARENTHESIS_OPEN):
-                bracketstack.append(Punctuation.PARENTHESIS_OPEN)
-            elif(token.type == Punctuation.BRACKET_OPEN):
-                bracketstack.append(Punctuation.BRACKET_OPEN)
-            elif(token.type == Punctuation.SQUARE_BRACKET_OPEN):
-                bracketstack.append(Punctuation.SQUARE_BRACKET_OPEN)
-
-            elif(token.type == Punctuation.PARENTHESIS_CLOSE):
-                if(len(bracketstack) == 0 or bracketstack[-1] != Punctuation.PARENTHESIS_OPEN):
-                    return False
-                else:
-                    bracketstack.pop()
-            elif(token.type == Punctuation.BRACKET_CLOSE):
-                if(len(bracketstack) == 0 or bracketstack[-1] != Punctuation.BRACKET_OPEN):
-                    return False
-                else:
-                    bracketstack.pop()
-            elif(token.type == Punctuation.SQUARE_BRACKET_CLOSE):
-                if(len(bracketstack) == 0 or bracketstack[-1] != Punctuation.SQUARE_BRACKET_OPEN):
-                    return False
-                else:
-                    bracketstack.pop()
-            else:
-                return False
-
-            if(token.type != Literal.WHITESPACE and token.type != Literal.NEWLINE):
-                previoustoken = token
-            i += 1
-
-        if(len(operatorstack) > 0):
-            return False
-        return True
-
-    def parse_expression(self, statement):
-        # statement berisi potongan ekspresi yang ingin dicek
-        i = 0
-        n = len(statement)
-        while(i < n and statement[i].type == Literal.WHITESPACE):
-            i += 1
-        token = statement[i]
-        if(token.type == Literal.NEWLINE or token.type == Literal.ENDMARKER):
-            self.throw(token.starts_at,
-                       "Syntax Error : Invalid expression.")
-
-        subexprs = self.split_args(statement[i:])
+        subexprs = self.split_one_level(statement[i:], Punctuation.COMMA)
+        # for i in range(len(subexprs)):
+        #     print(f"Indeks {i}")
+        #     for j in range(len(subexprs[i])):
+        #         print(subexprs[i][j].type.name)
         for j in range(len(subexprs)):
             i = 0
             n = len(subexprs[j])
             if(n == 0 and j != len(subexprs)-1):
-                self.throw(token.starts_at,
-                           "Syntax Error : Invalid expression.")
+                return (False, token)
             bracketstack = []
             numberstack = []
             operatorstack = []
@@ -652,8 +574,7 @@ class Parser:
                 if(token.type == Literal.WHITESPACE or token.type == Literal.NEWLINE):
                     pass
                 elif(len(bracketstack) > 0 and token.type == Literal.ENDMARKER):
-                    self.throw(token.starts_at,
-                               "Syntax Error : Invalid expression.")
+                    return (False, token)
 
                 elif(token.type == Literal.NUMBER or token.type == Literal.NAME or token.type == Literal.STRING or token.type == Literal.STRING_MULTILINE or
                      token.type == Keyword.TRUE or token.type == Keyword.FALSE or token.type == Keyword.NONE):
@@ -663,16 +584,15 @@ class Parser:
                             operatorstack.pop()
                     else:
                         if(len(operatorstack) == 0 and len(numberstack) > 0):
-                            self.throw(token.starts_at,
-                                       "Syntax Error : Invalid expression.")
+                            return (False, token)
                         else:
                             operator = operatorstack.pop()
                             while(self.isUnaryOperator(operator)):
                                 operatorprev = operator
                                 operator = operatorstack.pop()
                                 if(self.isUnaryOperator(operator) and (operatorprev.type != operator.type)):
-                                    self.throw(token.starts_at,
-                                               "Syntax Error : Invalid expression.")
+                                    return (False, token)
+
                 elif(previoustoken != None and token.type == Punctuation.ACCESSOR and self.isAtom(previoustoken) and self.isAtom(subexprs[j][i+1])):
                     if(len(numberstack) == 0):
                         numberstack.append(token)
@@ -680,30 +600,19 @@ class Parser:
                             operatorstack.pop()
                     else:
                         if(len(operatorstack) == 0 and len(numberstack) > 0):
-                            self.throw(token.starts_at,
-                                       "Syntax Error : Invalid expression.")
+                            return (False, token)
                         else:
                             operator = operatorstack.pop()
                             while(self.isUnaryOperator(operator)):
                                 operatorprev = operator
                                 operator = operatorstack.pop()
                                 if(self.isUnaryOperator(operator) and (operatorprev.type != operator.type)):
-                                    self.throw(token.starts_at,
-                                               "Syntax Error : Invalid expression.")
-
-                elif(self.isBinaryOperator(token)):
-                    if(len(numberstack) == 0):
-                        self.throw(token.starts_at,
-                                   "Syntax Error : Invalid expression.")
-                    else:
-                        operatorstack.append(token)
-                elif(self.isUnaryOperator(token)):
-                    operatorstack.append(token)
+                                    return (False, token)
 
                 elif(token.type == Punctuation.PARENTHESIS_OPEN):
-                    if(previoustoken == None and self.isBinaryOperator(previoustoken) or self.isUnaryOperator(previoustoken)):
+                    if(previoustoken == None or (self.isBinaryOperator(previoustoken) or self.isUnaryOperator(previoustoken))):
                         bracketstack.append(Punctuation.PARENTHESIS_OPEN)
-                    else:
+                    elif(self.isAtom(previoustoken)):   # Call to function
                         argstoken = []
                         parenthesisopencnt = 1
                         token = subexprs[j][i]
@@ -711,48 +620,86 @@ class Parser:
                         while(parenthesisopencnt > 0 and i < n):
                             token = subexprs[j][i]
                             argstoken.append(token)
-                            if(token.type == Punctuation.BRACKET_OPEN):
+                            if(token.type == Punctuation.PARENTHESIS_OPEN):
                                 parenthesisopencnt += 1
-                            elif(token.type == Punctuation.BRACKET_CLOSE):
+                            elif(token.type == Punctuation.PARENTHESIS_CLOSE):
                                 parenthesisopencnt -= 1
                             i += 1
                         argstoken.pop()
                         self.parse_arguments(argstoken)
+                        previoustoken = token
                         continue
+                    else:
+                        return (False, token)
                 elif(token.type == Punctuation.BRACKET_OPEN):
                     bracketstack.append(Punctuation.BRACKET_OPEN)
                 elif(token.type == Punctuation.SQUARE_BRACKET_OPEN):
-                    bracketstack.append(Punctuation.SQUARE_BRACKET_OPEN)
+                    argstoken = []
+                    bracketopencnt = 1
+                    token = subexprs[j][i]
+                    i += 1
+                    while(bracketopencnt > 0 and i < n):
+                        token = subexprs[j][i]
+                        argstoken.append(token)
+                        if(token.type == Punctuation.SQUARE_BRACKET_OPEN):
+                            bracketopencnt += 1
+                        elif(token.type == Punctuation.SQUARE_BRACKET_CLOSE):
+                            bracketopencnt -= 1
+                        i += 1
+                    argstoken.pop()
+                    # for k in range(len(argstoken)):
+                    #     print(argstoken[k].type.name)
+                    if(previoustoken == None or not(self.isAtom(previoustoken))):
+                        #self.parse_arguments(argstoken)
+                        validity = self.parse_star_expression(argstoken)
+                        if(not validity[0]):
+                            return (False, token)
+                    elif(self.isAtom(previoustoken)):
+                        #self.parse_arguments(argstoken)
+                        validity = self.parse_star_expression(argstoken)
+                        if(not validity[0]):
+                            self.parse_slices(argstoken)
+                    previoustoken = token
+                    continue
 
                 elif(token.type == Punctuation.PARENTHESIS_CLOSE):
                     if(len(bracketstack) == 0 or bracketstack[-1] != Punctuation.PARENTHESIS_OPEN):
-                        self.throw(token.starts_at,
-                                   "Syntax Error : Invalid expression.")
+                        return (False, token)
                     else:
                         bracketstack.pop()
                 elif(token.type == Punctuation.BRACKET_CLOSE):
                     if(len(bracketstack) == 0 or bracketstack[-1] != Punctuation.BRACKET_OPEN):
-                        self.throw(token.starts_at,
-                                   "Syntax Error : Invalid expression.")
+                        return (False, token)
                     else:
                         bracketstack.pop()
                 elif(token.type == Punctuation.SQUARE_BRACKET_CLOSE):
                     if(len(bracketstack) == 0 or bracketstack[-1] != Punctuation.SQUARE_BRACKET_OPEN):
-                        self.throw(token.starts_at,
-                                   "Syntax Error : Invalid expression.")
+                        return (False, token)
                     else:
                         bracketstack.pop()
+                elif(self.isBinaryOperator(token)):
+                    if(len(numberstack) == 0):
+                        return (False, token)
+                    else:
+                        operatorstack.append(token)
+                elif(self.isUnaryOperator(token)):
+                    operatorstack.append(token)
                 else:
-                    self.throw(token.starts_at,
-                               "Syntax Error : Invalid expression.")
+                    return (False, token)
 
                 if(token.type != Literal.WHITESPACE and token.type != Literal.NEWLINE):
                     previoustoken = token
                 i += 1
 
             if(len(operatorstack) > 0):
-                self.throw(token.starts_at,
-                           "Syntax Error : Invalid expression.")
+                return (False, token)
+            return (True, token)
+
+    def parse_expression(self, statement):
+        # statement berisi potongan ekspresi yang ingin dicek
+        (isvalid, lasttoken) = self.parse_star_expression(statement)
+        if(not isvalid):
+            self.throw(lasttoken.starts_at, "Syntax Error : Invalid expression.")
 
     # def parse_complex_atom(self, statement):
     #     # Return (True/False, perubahan indeks token)
@@ -767,6 +714,25 @@ class Parser:
     #         elif(token.type == Punctuation.ACCESSOR):
 
     #         i += 1
+
+    def parse_slices(self, statement):
+        subexprs = self.split_one_level(statement, Punctuation.COLON)
+        if(len(subexprs) == 1):
+            isempty = True
+            for i in range(len(subexprs[0])):
+                if(subexprs[0][i].type != Literal.WHITESPACE and subexprs[0][i].type != Literal.WHITESPACE):
+                    isempty = False
+                    return
+            if(isempty):
+                self.throw(statement[0].starts_at, "Syntax Error : Invalid expression.")
+            else:
+                self.parse_expression(subexprs[0])
+        elif(len(subexprs) > 3):
+            self.throw(statement[0].starts_at, "Syntax Error : Invalid expression.")
+        else:
+            for i in range(len(subexprs)):
+                self.parse_expression(subexprs[i])
+
 
     def isAtom(self, token):
         if(token.type == Literal.NUMBER or token.type == Literal.NAME or token.type == Literal.STRING or token.type == Literal.STRING_MULTILINE or
@@ -1019,6 +985,26 @@ class Parser:
         res = []
         while i < l:
             if statement[i].type == separator:
+                res.append(statement[li:i])
+                li = i + 1
+            i += 1
+        res.append(statement[li:])
+        return res
+
+    def split_one_level(self, statement, separator):
+        # Bracket dianggap sudah valid karena sudah dicek di awal di next statement
+        # Sepatarator tidak bisa keluarga bracket
+        i = 0
+        li = 0
+        l = len(statement)
+        res = []
+        bracketstackcnt = 0
+        while i < l:
+            if statement[i].type == Punctuation.PARENTHESIS_OPEN or statement[i].type == Punctuation.BRACKET_OPEN or statement[i].type == Punctuation.SQUARE_BRACKET_OPEN:
+                bracketstackcnt += 1
+            elif statement[i].type == Punctuation.PARENTHESIS_CLOSE or statement[i].type == Punctuation.BRACKET_CLOSE or statement[i].type == Punctuation.SQUARE_BRACKET_CLOSE:
+                bracketstackcnt -= 1
+            elif statement[i].type == separator and bracketstackcnt == 0:
                 res.append(statement[li:i])
                 li = i + 1
             i += 1
@@ -1532,6 +1518,8 @@ class Parser:
         pass
 
     def trim(self, statement):
+        if(len(statement) == 0):
+            return []
         start = 0
         end = len(statement)
         if statement[start].type == Literal.WHITESPACE:

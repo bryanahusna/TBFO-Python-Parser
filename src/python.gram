@@ -220,6 +220,7 @@ atom:
     | 'None' 
     | STRING+
     | NUMBER
+    | list
     | (tuple | group)
     | (dict | set )
     | '...' 
