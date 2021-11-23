@@ -28,6 +28,7 @@ class Parser:
         while self.statement[-1].type != Literal.ENDMARKER:
             self.parse_simple_statement(self.statement)
             self.next_statement()
+        self.statement[-1].type = Literal.NEWLINE
         self.parse_simple_statement(self.statement)
 
         # self.next_statement()
@@ -248,7 +249,10 @@ class Parser:
                 self.loop_stack.pop()
             # Invalid first token
             case _:
-                raise SyntaxError()
+                try:
+                    self.parse_assignment(statement)
+                except:
+                    self.parse_expression(statement)
 
     def whitespace_only_until(self, index):
         statement = self.statement
@@ -335,6 +339,205 @@ class Parser:
             l += indent.value
         return l
 
+    def parse_assignment(self, statement):
+        i = 0
+        n = len(statement)
+        isvalid = self.parse_assignment_simple(statement)
+        if(isvalid):
+            return
+        isvalid = self.parse_assignment_multiple_targets(statement)
+        if(isvalid):
+            return
+        isvalid = self.parse_assignment_augmented(statement)
+        if(isvalid):
+            return
+        raise SyntaxError("Invalid Syntax")
+    
+    def parse_assignment_simple(self, statement):
+        namecount = 0
+        for i in range(len(statement)):
+            if(statement[i].type == Literal.WHITESPACE or statement[i].type == Literal.NEWLINE):
+                pass
+            elif(statement[i].type == Literal.NAME):
+                namecount += 1
+            elif(statement[i].type == Operator.ASSIGNMENT):
+                isstarexpr = self.parse_star_expression(statement[i+1:])
+                if(namecount == 1 and isstarexpr):
+                    return True
+                else:
+                    return False
+            else:
+                return False
+        return True
+
+    def parse_assignment_multiple_targets(self, statement):
+        i = 0
+        n = len(statement)
+        # for token in statement:
+        #     print(token.type.name)
+        # print("#########")
+        assignmentcount = 0
+        startargetcount = 0
+        isfirststar = True
+        islastexpr = False
+        while(i < n):
+            if(statement[i].type == Literal.WHITESPACE or statement[i].type == Literal.NEWLINE):
+                pass
+            elif(statement[i].type == Operator.ASSIGNMENT):
+                if(startargetcount < assignmentcount):
+                    return False
+                else:
+                    assignmentcount += 1
+            else:
+                (isstartarget, idx) = self.parse_star_target_multiple(statement[i:])
+                isstarexpression = self.parse_star_expression(statement[i:])
+                if(isstartarget and not islastexpr):
+                    startargetcount += 1
+                    i += idx
+                elif(isstarexpression and not islastexpr):
+                    islastexpr = True
+                else:
+                    return False
+            i += 1
+        if(startargetcount <= assignmentcount):
+            return False
+        else:
+            return True
+
+    def parse_assignment_augmented(self, statement):
+        (isstartarget, idx) = self.parse_star_target_single(statement)
+        i = idx + 1
+        n = len(statement)
+        if(not isstartarget):
+            return False
+
+        while(i < n):
+            if(statement[i].type == Literal.WHITESPACE or statement[i].type == Literal.NEWLINE):
+                pass
+            elif(self.isAugassignOperator(statement[i])):
+                i += 1
+                break
+            else:
+                return False
+            i += 1
+        if(self.parse_star_expression(statement[i:])):
+            return True
+        else:
+            return False
+    
+    def isAugassignOperator(self, token):
+        if(token.type == Operator.AUGMENTED_ADDITION or token.type == Operator.AUGMENTED_SUBTRACTION or token.type == Operator.MULTIPLICATION or
+           token.type == Operator.AUGMENTED_DIVISION or token.type == Operator.AUGMENTED_MODULUS or token.type == Operator.AUGMENTED_BITWISE_AND or
+           token.type == Operator.AUGMENTED_BITWISE_OR or token.type == Operator.AUGMENTED_BITWISE_XOR or token.type == Operator.AUGMENTED_BITWISE_LEFT_SHIFT or
+           token.type == Operator.AUGMENTED_BITWISE_RIGHT_SHIFT or token.type == Operator.AUGMENTED_EXPONENTIATION or token.type == Operator.AUGMENTED_FLOOR_DIVISION):
+           return True
+        else:
+            return False
+
+    def parse_star_target_single(self, statement):
+        # Mengembalikan apakah star target valid, serta indeks token terakhir di statement
+        i = 0
+        n = len(statement)
+        while(i < n):
+            if(statement[i].type == Literal.WHITESPACE or statement[i].type == Literal.NEWLINE):
+                pass
+            elif(statement[i].type == Literal.NAME):
+                return (True, i)
+            i += 1
+        return (False, i)
+    
+    def parse_star_target_multiple(self, statement):
+        # Mengembalikan apakah star target valid, serta indeks token terakhir di statement
+        # TODO: handle koma (dianggap jadi satu target)
+        i = 0
+        n = len(statement)
+        while(i < n):
+            if(statement[i].type == Literal.WHITESPACE or statement[i].type == Literal.NEWLINE):
+                pass
+            elif(statement[i].type == Literal.NAME):
+                return (True, i)
+            i += 1
+        return (False, i)
+
+    def parse_star_expression(self, statement):
+        # return True jika ekspresi valid, false jika tidak
+        i = 0
+        n = len(statement)
+        while(i < n and statement[i].type == Literal.WHITESPACE):
+            i += 1
+        token = statement[i]
+        if(token.type == Literal.NEWLINE or token.type == Literal.ENDMARKER):
+            return False
+
+        bracketstack = []
+        numberstack = []
+        operatorstack = []
+        previoustoken = None
+        while(i < n):
+            token = statement[i]
+            #print(token.type.name)
+            if(token.type == Literal.WHITESPACE or token.type == Literal.NEWLINE):
+                pass
+            elif(len(bracketstack) > 0 and token.type == Literal.ENDMARKER):
+                return False
+
+            elif(token.type == Literal.NUMBER or token.type == Literal.NAME or token.type == Keyword.TRUE or token.type == Keyword.FALSE or token.type == Keyword.NONE):
+                if(len(numberstack) == 0):
+                    numberstack.append(token)
+                    if(len(operatorstack) > 0 and self.isUnaryOperator(operatorstack[-1])):
+                        operatorstack.pop()
+                else:
+                    if(len(operatorstack) == 0 and len(numberstack) > 0):
+                        return False
+                    else:
+                        operator = operatorstack.pop()
+                        while(self.isUnaryOperator(operator)):
+                            operatorprev = operator
+                            operator = operatorstack.pop()
+                            if(self.isUnaryOperator(operator) and (operatorprev.type != operator.type)):
+                                return False
+
+            elif(self.isBinaryOperator(token)):
+                if(len(numberstack) == 0):
+                    return False
+                else:
+                    operatorstack.append(token)
+            elif(self.isUnaryOperator(token)):
+                operatorstack.append(token)
+
+            elif(token.type == Punctuation.PARENTHESIS_OPEN):
+                bracketstack.append(Punctuation.PARENTHESIS_OPEN)
+            elif(token.type == Punctuation.BRACKET_OPEN):
+                bracketstack.append(Punctuation.BRACKET_OPEN)
+            elif(token.type == Punctuation.SQUARE_BRACKET_OPEN):
+                bracketstack.append(Punctuation.SQUARE_BRACKET_OPEN)
+
+            elif(token.type == Punctuation.PARENTHESIS_CLOSE):
+                if(len(bracketstack) == 0 or bracketstack[-1] != Punctuation.PARENTHESIS_OPEN):
+                    return False
+                else:
+                    bracketstack.pop()
+            elif(token.type == Punctuation.BRACKET_CLOSE):
+                if(len(bracketstack) == 0 or bracketstack[-1] != Punctuation.BRACKET_OPEN):
+                    return False
+                else:
+                    bracketstack.pop()
+            elif(token.type == Punctuation.SQUARE_BRACKET_CLOSE):
+                if(len(bracketstack) == 0 or bracketstack[-1] != Punctuation.SQUARE_BRACKET_OPEN):
+                    return False
+                else:
+                    bracketstack.pop()
+            else:
+                return False
+
+            if(token.type != Literal.WHITESPACE and token.type != Literal.NEWLINE):
+                previoustoken = token
+            i += 1
+
+        if(len(operatorstack) > 0):
+            return False
+        return True
+
     def parse_expression(self, statement):
         # statement berisi potongan ekspresi yang ingin dicek
         i = 0
@@ -403,6 +606,8 @@ class Parser:
                     raise SyntaxError("Invalid expression")
                 else:
                     bracketstack.pop()
+            else:
+                raise SyntaxError("Invalid expression")
 
             if(token.type != Literal.WHITESPACE and token.type != Literal.NEWLINE):
                 previoustoken = token
