@@ -21,19 +21,13 @@ class Parser:
         tokenizer = Tokenizer()
         self.tokens = tokenizer.tokenize(filename)
         # for token in self.tokens:
-        # print(token.type)
+        #     print(token.type.name)
 
         self.parse_indents()
         self.next_statement()
         while self.statement[-1].type != Literal.ENDMARKER:
             self.parse_simple_statement(self.statement)
-            # for token in self.statement:
-            #     print(token.type)
-            # print()
             self.next_statement()
-        # for token in self.statement:
-            # print(token.type)
-        # print()
         self.parse_simple_statement(self.statement)
 
         # self.next_statement()
@@ -217,7 +211,7 @@ class Parser:
                 self.parse_import_from_stmt(statement)
             # Raise statement
             case Keyword.RAISE:
-                pass
+                self.parse_raise_stmt(statement)
             # Return statement
             case Keyword.RETURN:
                 if (len(self.func_stack) == 0):
@@ -341,28 +335,27 @@ class Parser:
             l += indent.value
         return l
 
-    def parse_expression(self, currentStatementIndex):
-        # Return tuple (Boolean, currentStatementIndex), True jika ekspresi valid, False jika tidak
-        # Final State: dievaluasi sampai baris atau jika masih ada kurung tetap
-        token = self.statement[currentStatementIndex]
-        if(len(self.statement) == 1 and (token.type == Literal.NEWLINE or Literal.ENDMARKER)):
-            return (True, 1)
-        while(token.type == Literal.WHITESPACE):
-            currentStatementIndex += 1
-            token = self.statement[currentStatementIndex]
+    def parse_expression(self, statement):
+        # statement berisi potongan ekspresi yang ingin dicek
+        i = 0
+        n = len(statement)
+        while(i < n and statement[i].type == Literal.WHITESPACE):
+            i += 1
+        token = statement[i]
         if(token.type == Literal.NEWLINE or token.type == Literal.ENDMARKER):
-            return (False, currentStatementIndex)
+            raise SyntaxError("Invalid expression")
 
         bracketstack = []
         numberstack = []
         operatorstack = []
         previoustoken = None
-        while(len(bracketstack) > 0 or (token.type != Literal.NEWLINE and token.type != Literal.ENDMARKER)):
-            print(token.type.name)
+        while(i < n):
+            token = statement[i]
+            #print(token.type.name)
             if(token.type == Literal.WHITESPACE or token.type == Literal.NEWLINE):
-                currentStatementIndex += 1
+                pass
             elif(len(bracketstack) > 0 and token.type == Literal.ENDMARKER):
-                return (False, currentStatementIndex)
+                raise SyntaxError("Invalid expression")
 
             elif(token.type == Literal.NUMBER or token.type == Literal.NAME or token.type == Keyword.TRUE or token.type == Keyword.FALSE or token.type == Keyword.NONE):
                 if(len(numberstack) == 0):
@@ -371,18 +364,18 @@ class Parser:
                         operatorstack.pop()
                 else:
                     if(len(operatorstack) == 0 and len(numberstack) > 0):
-                        return (False, currentStatementIndex)
+                        raise SyntaxError("Invalid expression")
                     else:
                         operator = operatorstack.pop()
                         while(self.isUnaryOperator(operator)):
                             operatorprev = operator
                             operator = operatorstack.pop()
                             if(self.isUnaryOperator(operator) and (operatorprev.type != operator.type)):
-                                return (False, currentStatementIndex)
+                                raise SyntaxError("Invalid expression")
 
             elif(self.isBinaryOperator(token)):
                 if(len(numberstack) == 0):
-                    return (False, currentStatementIndex)
+                    raise SyntaxError("Invalid expression")
                 else:
                     operatorstack.append(token)
             elif(self.isUnaryOperator(token)):
@@ -397,33 +390,27 @@ class Parser:
 
             elif(token.type == Punctuation.PARENTHESIS_CLOSE):
                 if(len(bracketstack) == 0 or bracketstack[-1] != Punctuation.PARENTHESIS_OPEN):
-                    return (False, currentStatementIndex)
+                    raise SyntaxError("Invalid expression")
                 else:
                     bracketstack.pop()
             elif(token.type == Punctuation.BRACKET_CLOSE):
                 if(len(bracketstack) == 0 or bracketstack[-1] != Punctuation.BRACKET_OPEN):
-                    return (False, currentStatementIndex)
+                    raise SyntaxError("Invalid expression")
                 else:
                     bracketstack.pop()
             elif(token.type == Punctuation.SQUARE_BRACKET_CLOSE):
                 if(len(bracketstack) == 0 or bracketstack[-1] != Punctuation.SQUARE_BRACKET_OPEN):
-                    return (False, currentStatementIndex)
+                    raise SyntaxError("Invalid expression")
                 else:
                     bracketstack.pop()
 
-            if(currentStatementIndex == len(self.statement)-1):
-                currentStatementIndex = 0
-                self.next_statement()
-            else:
-                currentStatementIndex += 1
-                # self.index += 1
             if(token.type != Literal.WHITESPACE and token.type != Literal.NEWLINE):
                 previoustoken = token
-            token = self.statement[currentStatementIndex]
+            i += 1
 
         if(len(operatorstack) > 0):
-            return (False, currentStatementIndex)
-        return (True, currentStatementIndex)
+            raise SyntaxError("Invalid expression")
+
 
     def isUnaryOperator(self, token):
         if(token.type == Keyword.NOT or token.type == Operator.BITWISE_NOT):
@@ -662,7 +649,7 @@ class Parser:
             name = stmt[0]
             if name.type != Literal.NAME:
                 raise SyntaxError()
-
+    
     def split(self, statement, separator):
         # type: (list[Token], Token) -> list[list[Token]]
 
@@ -678,6 +665,24 @@ class Parser:
             i += 1
         res.append(statement[li:])
         return res
+
+    def parse_raise_stmt(self, statement):
+        statement = statement[1:]
+        i = 0
+        while(statement[i].type == Literal.WHITESPACE):
+            i += 1
+        if(statement[i].type == Literal.NEWLINE):   # Empty raise
+            return
+
+        statement = statement[i:]
+        splitted = self.split(statement, Keyword.FROM)
+        if(len(splitted) > 2):      # Jika ada lebih dari 1 from, tidak valid
+            raise SyntaxError("Raise Expression not valid")
+
+        isvalid = True
+        self.parse_expression(splitted[0])
+        if(len(splitted) == 2):
+            self.parse_expression(splitted[1])
 
     def parse_function_def(self, statement):
         # Parse grammar function def
@@ -1083,5 +1088,5 @@ class IndentType(Enum):
     TAB = 1
 
 
-# parser = Parser()
-# parser.parse("a.py")
+parser = Parser()
+parser.parse("test.py")
