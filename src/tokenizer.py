@@ -437,7 +437,7 @@ class Tokenizer:
                 self.push_token()
             elif char_code == 93:
                 self.current_token = Token(
-                    Punctuation.SQUARE_BRACKET_OPEN, char, (self.line, self.col))
+                    Punctuation.SQUARE_BRACKET_CLOSE, char, (self.line, self.col))
                 self.push_token()
             elif char_code == 94:
                 self.current_token = Token(
@@ -519,6 +519,12 @@ class Token:
 
     def append(self, value):
         self.value = "".join([self.value, value])
+
+    def is_opening_bracket(self):
+        return self.type in brackets_opening
+
+    def is_closing_bracket(self):
+        return self.type in brackets_closing
 
 
 # Used for debugging purposes

@@ -20,78 +20,106 @@ class Parser:
                 self.lines.append(line)
         tokenizer = Tokenizer()
         self.tokens = tokenizer.tokenize(filename)
-        for token in self.tokens:
-            print(token.type)
-
-        # self.next_statement()
-        # while(self.index < len(self.tokens)-1):
-        #     print(len(self.tokens))
-        #     print(self.parse_expression(0))     # Dimulai dari token ke 0 di statement
-        #     self.next_statement()
-        # print(self.parse_expression(0))
+        # for token in self.tokens:
+        # print(token.type)
 
         self.parse_indents()
         self.next_statement()
         while self.statement[-1].type != Literal.ENDMARKER:
             self.parse_simple_statement(self.statement)
+            # for token in self.statement:
+            #     print(token.type)
+            # print()
             self.next_statement()
-        self.parse_simple_statement(self.statement[:-1])
+        # for token in self.statement:
+            # print(token.type)
+        # print()
+        self.parse_simple_statement(self.statement)
 
-        # for token in self.tokens:
-        #     print(token.type)
-
-        # self.grammar_stack = []
-        # self.tries = []
-        # self.try_index_trace = []
-        # self.required_input = []
-        # self.index = 0
-        # token = self.tokens[self.index]
-        # # TODO : Ganti cara pembacaan jadi tiap satu
-        # # statement atau block
-        # while token.type != Literal.ENDMARKER:
-        #     if len(self.grammar_stack) == 0:
-        #         if len(self.required_input) == 0:
-        #             if token.type in [Keyword.PASS,
-        #                               Keyword.BREAK, Keyword.CONTINUE]:
-        #                 self.required_input.append(Literal.NEWLINE)
-        #                 token, self.index = self.skip_whitespaces(
-        #                     self.index + 1)
-        #             elif token.type == Keyword.RAISE:
-        #                 self.tries.append()
-        #             elif token.type == Keyword.IMPORT:
-        #                 self.tries.append()
-        #         else:
-        #             next = self.required_input[-1]
-        #             if token.type != next:
-        #                 raise SyntaxError()
-        #             else:
-        #                 self.required_input.pop()
-        #                 token, self.index = self.skip_whitespaces(
-        #                     self.index + 1)
-        #     else:
-        #         pass
-        # def parse(self, filename):
-        #     with open(filename) as f:
-        #         for line in f:
-        #             self.lines.append(line)
-        #     tokenizer = Tokenizer()
-        #     self.tokens = tokenizer.tokenize(filename)
-        #     self.parse_indents()
-        #     self.parse_statements()
-        #     # self.check_statements()
-        #     self.parse_block(self.statements)
+        # self.next_statement()
+        # while(self.index < len(self.tokens)-1):
+        #     # print(len(self.tokens))
+        #     # Dimulai dari token ke 0 di statement
+        #     # print(self.parse_expression(0))
+        #     self.parse_simple_statement(self.statement)
+        #     self.next_statement()
+        # print(self.parse_expression(0))
 
     def next_statement(self):
         # type: () -> None
         # Baca statement berikutnya sebagai list token
+        bracket_stack = []
+        expect_indent = False
+        indent_stack = 0
+        expect_dedent = 0
         self.statement = []
+        last_token = None
         token = self.tokens[self.index]
-        while token.type != Literal.NEWLINE and token.type != Literal.ENDMARKER:
+        end_with_dedent = False
+        while token.type not in [Literal.NEWLINE, Literal.ENDMARKER] or len(bracket_stack) != 0 or expect_dedent != 0:
+
+            if expect_indent and type(token.type) != Indentation:
+                raise IndentationError()
+            elif expect_indent:
+                expect_indent = False
+
+            if token.is_opening_bracket():
+                bracket_stack.append(token.type)
+            elif token.is_closing_bracket():
+                if len(bracket_stack) == 0:
+                    raise SyntaxError(
+                        "Closing bracket appeared before any opening bracket")
+                match bracket_stack[-1]:
+                    case Punctuation.PARENTHESIS_OPEN:
+                        if token.type != Punctuation.PARENTHESIS_CLOSE:
+                            raise SyntaxError("Bracket mismatch")
+                    case Punctuation.SQUARE_BRACKET_OPEN:
+                        if token.type != Punctuation.SQUARE_BRACKET_CLOSE:
+                            raise SyntaxError("Bracket mismatch")
+                    case Punctuation.BRACKET_OPEN:
+                        if token.type != Punctuation.BRACKET_CLOSE:
+                            raise SyntaxError("Bracket mismatch")
+                bracket_stack.pop()
+            elif token.type == Indentation.INDENT:
+                indent_stack += 1
+            elif token.type == Indentation.DEDENT:
+                indent_stack -= 1
+                expect_dedent -= 1
+                if last_token.type == Literal.NEWLINE and expect_dedent == 0:
+                    end_with_dedent = True
+                    self.index += 1
+                    break
+
+            if token.type == Literal.NEWLINE and len(bracket_stack) > indent_stack:
+                expect_indent = True
+                expect_dedent += 1
+
             self.statement.append(token)
             self.index += 1
+            last_token = token
             token = self.tokens[self.index]
-        self.statement.append(token)
-        self.index += 1
+
+        if not end_with_dedent:
+            self.statement.append(token)
+            self.index += 1
+
+        if len(bracket_stack) != 0:
+            raise SyntaxError(
+                "Bracket error.")
+        if indent_stack != 0:
+            raise IndentationError("Indentation error in a single statement.")
+
+        self.condense_statement()
+
+    def condense_statement(self):
+        i = 0
+        while i < len(self.statement):
+            token = self.statement[i]
+            if token.type == Literal.NEWLINE:
+                if i != len(self.statement) - 1 and type(self.statement[i + 1].type) == Indentation:
+                    self.statement.pop(i)
+                    self.statement.pop(i)
+            i += 1
 
     def next_block(self):
         # type: () -> None
@@ -134,7 +162,7 @@ class Parser:
                 while self.statement[0].type == Indentation.DEDENT:
                     indent_stack -= 1
                     self.statement = self.statement[1:]
-            self.parse_simple_statement(self.statment)
+            self.parse_simple_statement(self.statement)
 
     def parse_simple_statement(self, statement):
         # ENDMARKER only statement
@@ -142,7 +170,7 @@ class Parser:
             return
 
         first_token = statement[0]      # type: Token
-        print(first_token.type.name)
+
         # TODO: Cek setiap token awal yang mungkin sebagai
         # simple_statement
 
@@ -189,7 +217,7 @@ class Parser:
                 self.parse_import_from_stmt(statement)
             # Raise statement
             case Keyword.RAISE:
-                self.parse_raise_stmt(statement)
+                pass
             # Return statement
             case Keyword.RETURN:
                 if (len(self.func_stack) == 0):
@@ -227,16 +255,6 @@ class Parser:
             # Invalid first token
             case _:
                 raise SyntaxError()
-
-        if first_token.type == Literal.NEWLINE:
-            pass
-        elif first_token.type == Keyword.PASS:
-            pass
-
-    def parse_compound_statement(self, statement):
-        # TODO: Cek setiap token awal yang mungkin sebagai
-        # compound_statement
-        pass
 
     def whitespace_only_until(self, index):
         statement = self.statement
@@ -295,6 +313,20 @@ class Parser:
                             if current_indent_length != self.indent_length(indent_stack):
                                 raise IndentationError(
                                     "Inconsistent indentation")
+                else:
+                    indent_length = self.indent_length(indent_stack)
+                    current_indent_length = 0
+                    if current_indent_length < indent_length:
+                        self.tokens.insert(i, Token(Indentation.DEDENT, '',
+                                                    token.starts_at))
+                        indent_stack.pop()
+                        while current_indent_length < self.indent_length(indent_stack) and len(indent_stack) > 0:
+                            self.tokens.insert(i, Token(Indentation.DEDENT, '',
+                                                        token.starts_at))
+                            indent_stack.pop()
+                        if current_indent_length != self.indent_length(indent_stack):
+                            raise IndentationError(
+                                "Inconsistent indentation")
             last_token = token.type
             i += 1
 
@@ -320,7 +352,7 @@ class Parser:
             token = self.statement[currentStatementIndex]
         if(token.type == Literal.NEWLINE or token.type == Literal.ENDMARKER):
             return (False, currentStatementIndex)
-        
+
         bracketstack = []
         numberstack = []
         operatorstack = []
@@ -328,10 +360,10 @@ class Parser:
         while(len(bracketstack) > 0 or (token.type != Literal.NEWLINE and token.type != Literal.ENDMARKER)):
             print(token.type.name)
             if(token.type == Literal.WHITESPACE or token.type == Literal.NEWLINE):
-                pass
+                currentStatementIndex += 1
             elif(len(bracketstack) > 0 and token.type == Literal.ENDMARKER):
                 return (False, currentStatementIndex)
-            
+
             elif(token.type == Literal.NUMBER or token.type == Literal.NAME or token.type == Keyword.TRUE or token.type == Keyword.FALSE or token.type == Keyword.NONE):
                 if(len(numberstack) == 0):
                     numberstack.append(token)
@@ -347,7 +379,7 @@ class Parser:
                             operator = operatorstack.pop()
                             if(self.isUnaryOperator(operator) and (operatorprev.type != operator.type)):
                                 return (False, currentStatementIndex)
-                
+
             elif(self.isBinaryOperator(token)):
                 if(len(numberstack) == 0):
                     return (False, currentStatementIndex)
@@ -355,14 +387,14 @@ class Parser:
                     operatorstack.append(token)
             elif(self.isUnaryOperator(token)):
                 operatorstack.append(token)
-            
+
             elif(token.type == Punctuation.PARENTHESIS_OPEN):
                 bracketstack.append(Punctuation.PARENTHESIS_OPEN)
             elif(token.type == Punctuation.BRACKET_OPEN):
                 bracketstack.append(Punctuation.BRACKET_OPEN)
             elif(token.type == Punctuation.SQUARE_BRACKET_OPEN):
                 bracketstack.append(Punctuation.SQUARE_BRACKET_OPEN)
-            
+
             elif(token.type == Punctuation.PARENTHESIS_CLOSE):
                 if(len(bracketstack) == 0 or bracketstack[-1] != Punctuation.PARENTHESIS_OPEN):
                     return (False, currentStatementIndex)
@@ -384,7 +416,7 @@ class Parser:
                 self.next_statement()
             else:
                 currentStatementIndex += 1
-                #self.index += 1
+                # self.index += 1
             if(token.type != Literal.WHITESPACE and token.type != Literal.NEWLINE):
                 previoustoken = token
             token = self.statement[currentStatementIndex]
@@ -403,20 +435,19 @@ class Parser:
         if(token.type == Keyword.AND or token.type == Keyword.OR):
             return True
 
-        if(token.type == Operator.EQUAL or token.type == Operator.NOT_EQUAL or token.type == Operator.LESS_EQUAL or 
+        if(token.type == Operator.EQUAL or token.type == Operator.NOT_EQUAL or token.type == Operator.LESS_EQUAL or
            token.type == Operator.LESS_THAN or token.type == Operator.GREATER_EQUAL or token.type == Operator.GREATER_THAN):
             return True
-        
+
         if(token.type == Operator.BITWISE_OR or token.type == Operator.BITWISE_XOR or token.type == Operator.BITWISE_LEFT_SHIFT or
            token.type == Operator.BITWISE_RIGHT_SHIFT):
-           return True
-        
+            return True
+
         if(token.type == Operator.ADDITION or token.type == Operator.SUBTRACTION or token.type == Operator.MULTIPLICATION or
            token.type == Operator.DIVISION or token.type == Operator.FLOOR_DIVISION or token.type == Operator.MODULUS or token.type == Operator.EXPONENTIATION):
-           return True
-        
+            return True
+
         return False
-        
 
     def parse_statements(self):
         # @deprecated
@@ -632,28 +663,6 @@ class Parser:
             if name.type != Literal.NAME:
                 raise SyntaxError()
 
-    def parse_raise_stmt(self, statement):
-        statement = statement[1:]
-        i = 0
-        while(statement[i].type == Literal.WHITESPACE):
-            i += 1
-        if(statement[i].type == Literal.NEWLINE):   # Empty raise
-            return
-
-        statement = statement[i:]
-        splitted = self.split(statement, Keyword.FROM)
-        if(len(splitted) > 2):      # Jika ada lebih dari 1 from, tidak valid
-            raise SyntaxError("Raise Expression not valid")
-
-        isvalid = True
-        (isvalid, idx) = self.parse_expression(splitted[0])
-        if not isvalid:
-            raise SyntaxError("Raise Expression not valid")
-        if(len(splitted) == 2):
-            (isvalid, idx) = self.parse_expression(splitted[1])
-            if not isvalid:
-                raise SyntaxError("Raise Expression not valid")
-
     def split(self, statement, separator):
         # type: (list[Token], Token) -> list[list[Token]]
 
@@ -680,7 +689,7 @@ class Parser:
         # [3] Cek di sub_stmts[0] ada NAME sama parenthesis open dan close
         # [4] Kalo ada params, parse_params
         # [5] parse_block
-        
+
         # TODO : recheck algorithm
 
         sub_stmts = self.split(statement, Punctuation.COLON)
@@ -692,7 +701,7 @@ class Parser:
 
         if (left[0].type != Literal.NAME):
             raise SyntaxError()
-        
+
         if (len(left) > 1):
             if (left[1].type != Punctuation.PARENTHESIS_OPEN or left[-1].type != Punctuation.PARENTHESIS_CLOSE):
                 raise SyntaxError()
@@ -719,8 +728,8 @@ class Parser:
             left = new_stmt[0]
             if (len(left) > 0):
                 left = self.trim(left)
-            
-            if (len(left)>1 or (len(left)==1 and left[0].type != Literal.NAME)):
+
+            if (len(left) > 1 or (len(left) == 1 and left[0].type != Literal.NAME)):
                 raise SyntaxError()
 
             if (equalSign):
@@ -731,7 +740,7 @@ class Parser:
                     self.parse_expression(right)
                 else:
                     raise SyntaxError()
-        
+
         print("finish parse params")
 
     def parse_class_def(self, statement):
@@ -764,11 +773,11 @@ class Parser:
                 if (len(arguments_stmt) != 0):
                     self.parse_arguments(arguments_stmt)
                     # print("finish parse arguments")
-        
+
         right = sub_stmts[1]
         self.parse_block(right)
         # print("finish parse class")
-    
+
     def parse_arguments(self, statement):
         # args [','] &')'
 
@@ -776,9 +785,9 @@ class Parser:
         statements = self.split(statement, Punctuation.COMMA)
         for stmt in statements:
             self.parse_args(stmt)
-        
+
         # print("finish parse arguments")
-    
+
     def parse_args(self, statement):
         # ','.(starred_expression | ( assignment_expression | expression !':=') !'=')+ [',' kwargs ]
         # kwargs
@@ -794,8 +803,8 @@ class Parser:
             left = new_stmt[0]
             if (len(left) > 0):
                 left = self.trim(left)
-            
-            if (len(left)>1 or (len(left)==1 and left[0].type != Literal.NAME)):
+
+            if (len(left) > 1 or (len(left) == 1 and left[0].type != Literal.NAME)):
                 raise SyntaxError()
 
             if (equalSign):
@@ -806,7 +815,7 @@ class Parser:
                     self.parse_expression(right)
                 else:
                     raise SyntaxError()
-        
+
         # print("finish parse args")
 
     def parse_with_stmt(self, statement):
@@ -829,9 +838,9 @@ class Parser:
         with_item_stmt = self.split(left, Punctuation.COMMA)
         for with_item in with_item_stmt:
             self.parse_with_item(with_item)
-        
+
         # parse block
-        self.parse_block(sub_stmts[-1])        
+        self.parse_block(sub_stmts[-1])
         # print("finish parse with_stmt")
 
     def parse_with_item(self, statement):
@@ -844,12 +853,12 @@ class Parser:
             # masuk ke cabang pertama
             self.parse_expression(sub_stmt[0])
             self.parse_star_target(sub_stmt[1])
-        elif (len(sub_stmt) == 1) :
+        elif (len(sub_stmt) == 1):
             # masuk ke cabang kedua
             self.parse_expression(statement)
         else:
             raise SyntaxError()
-        
+
         print("finish parse with item")
 
     def parse_if_stmt(self, statement):
@@ -1000,7 +1009,7 @@ class Parser:
         else:
             self.index = cindex
 
-    def parse_star_terget(self,statement):
+    def parse_star_terget(self, statement):
         pass
 
     def parse_star_targets(self, statement):
@@ -1025,7 +1034,7 @@ class Parser:
     def parse_assignment_expression(self, statement):
         pass
 
-    #def parse_expression(self, statement):
+    # def parse_expression(self, statement):
     #    pass
 
     def trim(self, statement):
@@ -1074,5 +1083,5 @@ class IndentType(Enum):
     TAB = 1
 
 
-parser = Parser()
-parser.parse("test.py")
+# parser = Parser()
+# parser.parse("a.py")

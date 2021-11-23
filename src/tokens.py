@@ -126,3 +126,15 @@ keywords = {
     "or": Keyword.OR,
     "not": Keyword.NOT
 }
+
+brackets_opening = [
+    Punctuation.PARENTHESIS_OPEN,
+    Punctuation.BRACKET_OPEN,
+    Punctuation.SQUARE_BRACKET_OPEN
+]
+
+brackets_closing = [
+    Punctuation.PARENTHESIS_CLOSE,
+    Punctuation.BRACKET_CLOSE,
+    Punctuation.SQUARE_BRACKET_CLOSE
+]
