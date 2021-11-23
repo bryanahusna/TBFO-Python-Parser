@@ -434,7 +434,7 @@ class Parser:
             elif(statement[i].type == Literal.NAME):
                 namecount += 1
             elif(statement[i].type == Operator.ASSIGNMENT):
-                isstarexpr = self.parse_star_expression(statement[i+1:])
+                (isstarexpr, token) = self.parse_star_expression(statement[i+1:])
                 if(namecount == 1 and isstarexpr):
                     return True
                 else:
@@ -464,7 +464,7 @@ class Parser:
             else:
                 (isstartarget, idx) = self.parse_star_target_multiple(
                     statement[i:])
-                isstarexpression = self.parse_star_expression(statement[i:])
+                (isstarexpression, token) = self.parse_star_expression(statement[i:])
                 if(isstartarget and not islastexpr):
                     startargetcount += 1
                     i += idx
@@ -494,7 +494,8 @@ class Parser:
             else:
                 return False
             i += 1
-        if(self.parse_star_expression(statement[i:])):
+        (isexpression, token) = self.parse_star_expression(statement[i:])
+        if(isexpression):
             return True
         else:
             return False
@@ -550,6 +551,8 @@ class Parser:
         n = len(statement)
         while(i < n and statement[i].type == Literal.WHITESPACE):
             i += 1
+        if(i == n):
+            return (False, statement[i-1])
         token = statement[i]
         if(token.type == Literal.NEWLINE or token.type == Literal.ENDMARKER):
             return (False, token)
@@ -570,7 +573,6 @@ class Parser:
             previoustoken = None
             while(i < n):
                 token = subexprs[j][i]
-                # print(token.type.name)
                 if(token.type == Literal.WHITESPACE or token.type == Literal.NEWLINE):
                     pass
                 elif(len(bracketstack) > 0 and token.type == Literal.ENDMARKER):
@@ -648,8 +650,10 @@ class Parser:
                         i += 1
                     argstoken.pop()
                     # for k in range(len(argstoken)):
-                    #     print(argstoken[k].type.name)
-                    if(previoustoken == None or not(self.isAtom(previoustoken))):
+                    #      print(argstoken[k].type.name)
+                    if(self.isStatementWhitespace(argstoken)):
+                        pass
+                    elif(previoustoken == None or not(self.isAtom(previoustoken))):
                         #self.parse_arguments(argstoken)
                         validity = self.parse_star_expression(argstoken)
                         if(not validity[0]):
@@ -690,10 +694,10 @@ class Parser:
                 if(token.type != Literal.WHITESPACE and token.type != Literal.NEWLINE):
                     previoustoken = token
                 i += 1
-
+            
             if(len(operatorstack) > 0):
                 return (False, token)
-            return (True, token)
+        return (True, token)
 
     def parse_expression(self, statement):
         # statement berisi potongan ekspresi yang ingin dicek
@@ -731,8 +735,15 @@ class Parser:
             self.throw(statement[0].starts_at, "Syntax Error : Invalid expression.")
         else:
             for i in range(len(subexprs)):
+                if(self.isStatementWhitespace(subexprs[i])):
+                    continue
                 self.parse_expression(subexprs[i])
 
+    def isStatementWhitespace(self, statement):
+        for i in range(len(statement)):
+            if(statement[i].type != Literal.WHITESPACE and statement[i].type != Literal.NEWLINE):
+                return False
+        return True
 
     def isAtom(self, token):
         if(token.type == Literal.NUMBER or token.type == Literal.NAME or token.type == Literal.STRING or token.type == Literal.STRING_MULTILINE or

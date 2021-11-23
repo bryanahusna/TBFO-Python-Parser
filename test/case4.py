@@ -1,2 +1,2 @@
 x + 5
-mantap()
+z = e[a : b : c]
