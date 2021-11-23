@@ -595,7 +595,16 @@ class Parser:
                                 if(self.isUnaryOperator(operator) and (operatorprev.type != operator.type)):
                                     return (False, token)
 
-                elif(previoustoken != None and token.type == Punctuation.ACCESSOR and self.isAtom(previoustoken) and self.isAtom(subexprs[j][i+1])):
+                elif(previoustoken != None and token.type == Punctuation.ACCESSOR and self.isAtom(previoustoken)):
+                    i += 1
+                    token = subexprs[j][i]
+                    while(i < n and (token.type == Literal.WHITESPACE or token.type == Literal.NEWLINE)):
+                        token = subexprs[j][i]
+                        i += 1
+                    if(i == n or token.type != Literal.NAME):
+                        return (False, token)
+                    #subexprs[j][i+1].type == Literal.NAME
+                    numberstack.pop()
                     if(len(numberstack) == 0):
                         numberstack.append(token)
                         if(len(operatorstack) > 0 and self.isUnaryOperator(operatorstack[-1])):
@@ -634,7 +643,55 @@ class Parser:
                     else:
                         return (False, token)
                 elif(token.type == Punctuation.BRACKET_OPEN):
-                    bracketstack.append(Punctuation.BRACKET_OPEN)
+                    #bracketstack.append(Punctuation.BRACKET_OPEN)
+                    argstoken = []
+                    bracketopencnt = 1
+                    token = subexprs[j][i]
+                    i += 1
+                    while(bracketopencnt > 0 and i < n):
+                        token = subexprs[j][i]
+                        argstoken.append(token)
+                        if(token.type == Punctuation.BRACKET_OPEN):
+                            bracketopencnt += 1
+                        elif(token.type == Punctuation.BRACKET_CLOSE):
+                            bracketopencnt -= 1
+                        i += 1
+                    argstoken.pop()
+                    # for k in range(len(argstoken)):
+                    #       print(argstoken[k].type.name)
+                    if(self.isStatementWhitespace(argstoken)):
+                        pass
+                    else:
+                        validity = self.parse_star_expression(argstoken)
+                        if(not validity[0]):
+                            kwds = self.split_one_level(argstoken, Punctuation.COMMA)
+                            for k in range(len(kwds)):
+                                if(self.isStatementWhitespace(kwds[k]) and k != (len(kwds)-1)):     # Jika kosong, tidak valid
+                                    return (False, token)
+                                elif(self.isStatementWhitespace(kwds[k]) and k == (len(kwds)-1)):   # Jika kosong tapi di akhir (ada koma di akhir), valid
+                                    pass
+                                else:
+                                    temp = self.split_one_level(kwds[k], Punctuation.COLON)
+                                    if(len(temp) == 1 or len(temp) > 2):
+                                        return (False, token)
+                                    else:
+                                        validity1 = self.parse_star_expression(temp[0])
+                                        validity2 = self.parse_star_expression(temp[1])
+                                        if(not validity1[0] or not validity2[0]):
+                                            return (False, token)
+                    # elif(previoustoken == None or not(self.isAtom(previoustoken))):
+                    #     #self.parse_arguments(argstoken)
+                    #     validity = self.parse_star_expression(argstoken)
+                    #     if(not validity[0]):
+                    #         return (False, token)
+                    # elif(self.isAtom(previoustoken)):
+                    #     #self.parse_arguments(argstoken)
+                    #     validity = self.parse_star_expression(argstoken)
+                    #     if(not validity[0]):
+                    #         self.parse_slices(argstoken)
+                    previoustoken = token
+                    continue
+
                 elif(token.type == Punctuation.SQUARE_BRACKET_OPEN):
                     argstoken = []
                     bracketopencnt = 1
