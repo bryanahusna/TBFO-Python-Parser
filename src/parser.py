@@ -102,6 +102,13 @@ class Parser:
         if not end_with_dedent:
             self.statement.append(token)
             self.index += 1
+
+        if len(bracket_stack) != 0:
+            raise SyntaxError(
+                "Bracket error.")
+        if indent_stack != 0:
+            raise IndentationError("Indentation error in a single statement.")
+
         self.condense_statement()
 
     def condense_statement(self):
