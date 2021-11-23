@@ -63,6 +63,11 @@ class Tokenizer:
                 elif char == "j":
                     self.current_token.append(char)
                     self.push_token()
+                elif char.isalpha():
+                    print(f"An error found at {self.line + 1}:{self.col + 1}")
+                    print(f"Syntax Error : Number literals can't be directly \
+                        followed by a name.")
+                    exit(1)
                 else:
                     self.push_token()
                     self.push(char)
@@ -74,9 +79,10 @@ class Tokenizer:
                     self.current_token.append(char)
                     self.current_token.set_data("escape", True)
                 elif char_code == 10:
-                    raise SyntaxError(
-                        f"String literals must be closed between single or \
-                            double quotes {self.line}:{self.col}")
+                    print(f"An error found at {self.line + 1}:{self.col + 1}")
+                    print(f"Syntax Error : String literals must be closed between single or \
+                            double quotes.")
+                    exit(1)
                 elif char == data["starts_with"]:
                     self.current_token.append(char)
                     self.current_token = Token(
@@ -459,6 +465,8 @@ class Tokenizer:
             elif char_code == 126:
                 self.current_token = Token(
                     Operator.BITWISE_NOT, char, (self.line, self.col))
+            else:
+                print(f"Exception : Found unhandled character {char}")
 
     def push_token(self):
         self.tokens.append(self.current_token)
