@@ -528,7 +528,8 @@ class Parser:
             elif(len(bracketstack) > 0 and token.type == Literal.ENDMARKER):
                 return False
 
-            elif(token.type == Literal.NUMBER or token.type == Literal.NAME or token.type == Keyword.TRUE or token.type == Keyword.FALSE or token.type == Keyword.NONE):
+            elif(token.type == Literal.NUMBER or token.type == Literal.NAME or token.type == Literal.STRING or token.type == Literal.STRING_MULTILINE or
+                 token.type == Keyword.TRUE or token.type == Keyword.FALSE or token.type == Keyword.NONE):
                 if(len(numberstack) == 0):
                     numberstack.append(token)
                     if(len(operatorstack) > 0 and self.isUnaryOperator(operatorstack[-1])):
@@ -607,7 +608,8 @@ class Parser:
             elif(len(bracketstack) > 0 and token.type == Literal.ENDMARKER):
                 raise SyntaxError("Invalid expression")
 
-            elif(token.type == Literal.NUMBER or token.type == Literal.NAME or token.type == Keyword.TRUE or token.type == Keyword.FALSE or token.type == Keyword.NONE):
+            elif(token.type == Literal.NUMBER or token.type == Literal.NAME or token.type == Literal.STRING or token.type == Literal.STRING_MULTILINE or
+                 token.type == Keyword.TRUE or token.type == Keyword.FALSE or token.type == Keyword.NONE):
                 if(len(numberstack) == 0):
                     numberstack.append(token)
                     if(len(operatorstack) > 0 and self.isUnaryOperator(operatorstack[-1])):
