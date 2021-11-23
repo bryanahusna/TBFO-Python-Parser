@@ -24,6 +24,7 @@ class Parser:
         #     print(token.type.name)
 
         self.parse_indents()
+
         self.next_statement()
         while self.statement[-1].type != Literal.ENDMARKER:
             self.parse_simple_statement(self.statement)
@@ -49,9 +50,11 @@ class Parser:
         self.statement = []
         last_token = None
         token = self.tokens[self.index]
+        # print("Next statement :")
         end_with_dedent = False
         while token.type not in [Literal.NEWLINE, Literal.ENDMARKER] or len(bracket_stack) != 0 or expect_dedent != 0:
-
+            # print(
+            #     f"({token.starts_at[0] + 1}:{token.starts_at[1] + 1}) {token.type}")
             if expect_indent and type(token.type) != Indentation:
                 raise IndentationError()
             elif expect_indent:
@@ -102,7 +105,7 @@ class Parser:
                 "Bracket error.")
         if indent_stack != 0:
             raise IndentationError("Indentation error in a single statement.")
-
+        # print()
         self.condense_statement()
 
     def condense_statement(self):
@@ -145,23 +148,38 @@ class Parser:
         return token, index
 
     def parse_block(self, block):
-        indent_stack = 0
-        past = False
-        while indent_stack != 0 or not past:
-            self.next_statement()
-            if self.statement[0].type == Indentation.INDENT:
-                indent_stack += 1
-                past = True
-            elif self.statement[0].type == Indentation.DEDENT:
-                while self.statement[0].type == Indentation.DEDENT:
-                    indent_stack -= 1
-                    self.statement = self.statement[1:]
+        j = self.index - 1
+        self.index = j - len(self.block) + 2
+        # print(f"{self.index}/{j}")
+        # print(f"{self.index} : {self.tokens[self.index].type}")
+        self.next_statement()
+        while self.index < j:
+            # if self.statement[0].type == Indentation.INDENT:
+            #     indent_stack += 1
+            #     past = True
+            # elif self.statement[0].type == Indentation.DEDENT:
+            #     while self.statement[0].type == Indentation.DEDENT:
+            #         indent_stack -= 1
+            #         self.statement = self.statement[1:]
+            self.statement = self.trim(self.statement)
+            # for x in self.statement:
+            #     print(x.type)
+            # print()
             self.parse_simple_statement(self.statement)
+            # print(f"{self.index}/{j}")
+            if self.index >= j:
+                break
+            self.next_statement()
+        self.index = j + 1
 
     def parse_simple_statement(self, statement):
         # ENDMARKER only statement
-        if len(statement) == 0:
+        if len(statement) == 0 or len(statement) == 1 and statement[0].type == Literal.ENDMARKER:
             return
+
+        # for token in statement:
+        #     print(token.type)
+        # print()
 
         first_token = statement[0]      # type: Token
 
@@ -239,7 +257,7 @@ class Parser:
             # For statement
             case Keyword.FOR:
                 self.loop_stack.append(Keyword.FOR)
-                self.parse_while_stmt(statement)
+                self.parse_for_stmt(statement)
                 self.loop_stack.pop()
             # While statement
             case Keyword.WHILE:
@@ -264,6 +282,7 @@ class Parser:
         i = 0
         while i < len(self.tokens):
             token = self.tokens[i]
+
             if token.type == Literal.ENDMARKER:
                 end_marker = self.tokens.pop()
                 for j in range(len(indent_stack)):
@@ -273,6 +292,34 @@ class Parser:
                     ))
                 self.tokens.append(end_marker)
                 break
+            elif token.type == Literal.STRING_MULTILINE:
+                j = i
+                if last_token not in [Indentation.INDENT, Indentation.DEDENT, Literal.NEWLINE, Literal.WHITESPACE]:
+                    raise SyntaxError(
+                        "Statements must be separated with new line")
+                i += 1
+                next_token = self.tokens[i]
+                if next_token.type == Literal.WHITESPACE:
+                    self.tokens.pop(i)
+                if next_token.type == Literal.ENDMARKER:
+                    self.tokens.pop(i - 1)
+                elif next_token.type == Literal.NEWLINE:
+                    self.tokens.pop(j)
+                    self.tokens.pop(j)
+                else:
+                    raise SyntaxError(
+                        "Statements must be separated with new line")
+            elif token.type == Literal.COMMENT:
+                j = i
+                i += 1
+                next_token = self.tokens[i]
+                if next_token.type == Literal.WHITESPACE:
+                    self.tokens.pop(i)
+                if next_token.type in [Literal.ENDMARKER, Literal.NEWLINE]:
+                    self.tokens.pop(j)
+                else:
+                    raise SyntaxError(
+                        "Statements must be separated with new line")
             elif last_token == Literal.NEWLINE:
                 if token.type == Literal.WHITESPACE:
                     if len(indent_stack) == 0:
@@ -351,7 +398,7 @@ class Parser:
         previoustoken = None
         while(i < n):
             token = statement[i]
-            #print(token.type.name)
+            # print(token.type.name)
             if(token.type == Literal.WHITESPACE or token.type == Literal.NEWLINE):
                 pass
             elif(len(bracketstack) > 0 and token.type == Literal.ENDMARKER):
@@ -410,7 +457,6 @@ class Parser:
 
         if(len(operatorstack) > 0):
             raise SyntaxError("Invalid expression")
-
 
     def isUnaryOperator(self, token):
         if(token.type == Keyword.NOT or token.type == Operator.BITWISE_NOT):
@@ -649,7 +695,7 @@ class Parser:
             name = stmt[0]
             if name.type != Literal.NAME:
                 raise SyntaxError()
-    
+
     def split(self, statement, separator):
         # type: (list[Token], Token) -> list[list[Token]]
 
@@ -716,6 +762,7 @@ class Parser:
                 # print("finish parse params")
 
         right = sub_stmts[1]
+        self.next_block()
         self.parse_block(right)
         # print("finish parse function_def")
 
@@ -746,7 +793,7 @@ class Parser:
                 else:
                     raise SyntaxError()
 
-        print("finish parse params")
+        # print("finish parse params")
 
     def parse_class_def(self, statement):
         # Parse grammar class_def
@@ -864,7 +911,7 @@ class Parser:
         else:
             raise SyntaxError()
 
-        print("finish parse with item")
+        # print("finish parse with item")
 
     def parse_if_stmt(self, statement):
         token = statement[0]
@@ -873,7 +920,7 @@ class Parser:
         sub_stmts = self.split(statement[2:], Punctuation.COLON)
         if len(sub_stmts) != 2:
             raise SyntaxError()
-        self.parse_named_expression(sub_stmts[0])
+        self.parse_expression(sub_stmts[0])
 
         block_first_token = sub_stmts[1][0]
         first_token_index = 0
@@ -903,7 +950,7 @@ class Parser:
         sub_stmts = self.split(statement[2:], Punctuation.COLON)
         if len(sub_stmts) != 2:
             raise SyntaxError()
-        self.parse_named_expression(sub_stmts[0])
+        self.parse_expression(sub_stmts[0])
 
         block_first_token = sub_stmts[1][0]
         first_token_index = 0
@@ -939,6 +986,7 @@ class Parser:
         if token.type != Punctuation.COLON:
             raise SyntaxError()
         i += 1
+        token = statement[i]
         if token.type == Literal.WHITESPACE:
             i += 1
             token = statement[i]
@@ -955,7 +1003,7 @@ class Parser:
         sub_stmts = self.split(statement[2:], Punctuation.COLON)
         if len(sub_stmts) != 2:
             raise SyntaxError()
-        self.parse_named_expression(sub_stmts[0])
+        self.parse_expression(sub_stmts[0])
 
         block_first_token = sub_stmts[1][0]
         first_token_index = 0
@@ -1088,5 +1136,5 @@ class IndentType(Enum):
     TAB = 1
 
 
-parser = Parser()
-parser.parse("test.py")
+# parser = Parser()
+# parser.parse("test.py")
