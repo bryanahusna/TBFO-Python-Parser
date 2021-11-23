@@ -23,19 +23,19 @@ class Parser:
         for token in self.tokens:
             print(token.type)
 
-        self.next_statement()
-        while(self.index < len(self.tokens)-1):
-            print(len(self.tokens))
-            print(self.parse_expression(0))     # Dimulai dari token ke 0 di statement
-            self.next_statement()
-        print(self.parse_expression(0))
-
-        # self.parse_indents()
         # self.next_statement()
-        # while self.statement[-1].type != Literal.ENDMARKER:
-        #     self.parse_simple_statement(self.statement)
+        # while(self.index < len(self.tokens)-1):
+        #     print(len(self.tokens))
+        #     print(self.parse_expression(0))     # Dimulai dari token ke 0 di statement
         #     self.next_statement()
-        # self.parse_simple_statement(self.statement[:-1])
+        # print(self.parse_expression(0))
+
+        self.parse_indents()
+        self.next_statement()
+        while self.statement[-1].type != Literal.ENDMARKER:
+            self.parse_simple_statement(self.statement)
+            self.next_statement()
+        self.parse_simple_statement(self.statement[:-1])
 
         # for token in self.tokens:
         #     print(token.type)
@@ -142,7 +142,7 @@ class Parser:
             return
 
         first_token = statement[0]      # type: Token
-
+        print(first_token.type.name)
         # TODO: Cek setiap token awal yang mungkin sebagai
         # simple_statement
 
@@ -189,7 +189,7 @@ class Parser:
                 self.parse_import_from_stmt(statement)
             # Raise statement
             case Keyword.RAISE:
-                pass
+                self.parse_raise_stmt(statement)
             # Return statement
             case Keyword.RETURN:
                 if (len(self.func_stack) == 0):
@@ -631,6 +631,28 @@ class Parser:
             name = stmt[0]
             if name.type != Literal.NAME:
                 raise SyntaxError()
+
+    def parse_raise_stmt(self, statement):
+        statement = statement[1:]
+        i = 0
+        while(statement[i].type == Literal.WHITESPACE):
+            i += 1
+        if(statement[i].type == Literal.NEWLINE):   # Empty raise
+            return
+
+        statement = statement[i:]
+        splitted = self.split(statement, Keyword.FROM)
+        if(len(splitted) > 2):      # Jika ada lebih dari 1 from, tidak valid
+            raise SyntaxError("Raise Expression not valid")
+
+        isvalid = True
+        (isvalid, idx) = self.parse_expression(splitted[0])
+        if not isvalid:
+            raise SyntaxError("Raise Expression not valid")
+        if(len(splitted) == 2):
+            (isvalid, idx) = self.parse_expression(splitted[1])
+            if not isvalid:
+                raise SyntaxError("Raise Expression not valid")
 
     def split(self, statement, separator):
         # type: (list[Token], Token) -> list[list[Token]]
