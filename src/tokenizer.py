@@ -158,6 +158,9 @@ class Tokenizer:
                 if char == "=":
                     self.current_token = Token(
                         Operator.AUGMENTED_MULTIPLICATION, "*=", self.current_token.starts_at)
+                elif char == "*":
+                    self.current_token = Token(
+                        Operator.EXPONENTIATION, "**", self.current_token.starts_at)
                 else:
                     self.push_token()
                     self.push(char)
