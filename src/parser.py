@@ -14,7 +14,7 @@ class Parser:
         self.index = 0
         self.loop_stack = []    # type: list[TokenType]
         self.func_stack = []
-        self.trying = False
+        self.try_stack = 0
 
     def parse(self, filename):
         with open(filename, encoding="utf-8") as f:
@@ -290,10 +290,11 @@ class Parser:
             # Invalid first token
             case _:
                 try:
-                    self.trying = True
+                    self.try_stack += 1
                     self.parse_assignment(statement)
+                    self.try_stack -= 1
                 except:
-                    self.trying = False
+                    self.try_stack -= 1
                     self.parse_expression(statement)
                 # self.throw(first_token.starts_at,
                 #           "Syntax Error : Unexpected statement first token.")
@@ -422,16 +423,21 @@ class Parser:
     def parse_assignment(self, statement):
         i = 0
         n = len(statement)
-        isvalid = self.parse_assignment_simple(statement)
-        if(isvalid):
-            return
-        isvalid = self.parse_assignment_multiple_targets(statement)
-        if(isvalid):
-            return
-        isvalid = self.parse_assignment_augmented(statement)
-        if(isvalid):
-            return
-        raise SyntaxError("Invalid assignment")
+        try:
+            self.try_stack += 1
+            self.parse_assignment_simple(statement)
+            self.try_stack -= 1
+        except:
+            self.try_stack -= 1
+            try:
+                self.try_stack += 1
+                self.parse_assignment_multiple_targets(statement)
+                self.try_stack -= 1
+            except:
+                self.try_stack -= 1
+                self.parse_assignment_augmented(statement)
+        self.throw(statement[0].starts_at,
+                   "Syntax Error : Invalid assignment expression.")
 
     def parse_assignment_simple(self, statement):
         namecount = 0
@@ -774,10 +780,11 @@ class Parser:
                 self.parse_star_target_multiple(sub_stmt)
             else:
                 try:
-                    self.trying = True
+                    self.try_stack += 1
                     self.parse_target_with_star_atom(sub_stmt)
+                    self.try_stack -= 1
                 except:
-                    self.trying = False
+                    self.try_stack -= 1
                     self.parse_star_target_multiple(sub_stmt)
 
     def parse_star_target_multiple(self, statement):
@@ -1857,10 +1864,11 @@ class Parser:
     def parse_named_expression(self, statement):
         statement = self.trim(statement)
         try:
-            self.trying = True
+            self.try_stack += 1
             self.parse_assignment(statement)
+            self.try_stack -= 1
         except:
-            self.trying = False
+            self.try_stack -= 1
             self.parse_expression(statement)
 
     def trim(self, statement):
@@ -1883,7 +1891,7 @@ class Parser:
         return statement[i:]
 
     def throw(self, at, message):
-        if not self.trying:
+        if self.try_stack == 0:
             i = 0
             l = len(self.tokens)
             while self.tokens[i].starts_at[0] != at[0]:
