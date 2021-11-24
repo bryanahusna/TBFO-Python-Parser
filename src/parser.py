@@ -1566,6 +1566,8 @@ class Parser:
 
         # TODO : recheck algorithm
         new_stmt = self.trim(statement)
+        if len(new_stmt) == 0:
+            return
         if (new_stmt[-1].type == Punctuation.COMMA):
             if (len(new_stmt) > 1):
                 self.parse_args(new_stmt[:-1])

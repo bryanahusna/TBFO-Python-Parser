@@ -5,6 +5,9 @@ while x < 5:
     print(x)
     x += 1
 
+if x == some.func():
+    print("Correct")
+
 if x is 5:
     print("Success")
 

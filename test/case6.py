@@ -2,6 +2,7 @@ for i in range(10):
     print(i)
 
 x = 2
+x = a.b()
 
 
 def func4(a, b, c):
