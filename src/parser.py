@@ -752,7 +752,7 @@ class Parser:
             previoustoken = None
             while(i < n):
                 token = subexprs[j][i]
-                if(token.type == Literal.WHITESPACE or token.type == Literal.NEWLINE):
+                if(token.type == Literal.WHITESPACE or token.type == Literal.NEWLINE or token.type == Literal.COMMENT):
                     pass
                 elif(len(bracketstack) > 0 and token.type == Literal.ENDMARKER):
                     return (False, token)
