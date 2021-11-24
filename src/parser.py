@@ -751,6 +751,7 @@ class Parser:
             numberstack = []
             operatorstack = []
             previoustoken = None
+            isprevbracketatom = False
             while(i < n):
                 token = subexprs[j][i]
                 if(token.type == Literal.WHITESPACE or token.type == Literal.NEWLINE or token.type == Literal.COMMENT):
@@ -760,6 +761,7 @@ class Parser:
 
                 elif(token.type == Literal.NUMBER or token.type == Literal.NAME or token.type == Literal.STRING or token.type == Literal.STRING_MULTILINE or
                      token.type == Keyword.TRUE or token.type == Keyword.FALSE or token.type == Keyword.NONE):
+                    isprevbracketatom = False
                     if(len(numberstack) == 0):
                         numberstack.append(token)
                         if(len(operatorstack) > 0 and self.isUnaryOperator(operatorstack[-1])):
@@ -777,6 +779,7 @@ class Parser:
 
                 elif(previoustoken != None and token.type == Punctuation.ACCESSOR and self.isAtom(previoustoken)):
                     i += 1
+                    isprevbracketatom = False
                     token = subexprs[j][i]
                     while(i < n and (token.type == Literal.WHITESPACE or token.type == Literal.NEWLINE)):
                         token = subexprs[j][i]
@@ -816,8 +819,8 @@ class Parser:
                                 parenthesisopencnt -= 1
                             i += 1
                         argstoken.pop()
+                        isprevbracketatom = True
                         self.parse_arguments(argstoken)
-                        previoustoken = token
                         continue
                     else:
                         return (False, token)
@@ -835,6 +838,7 @@ class Parser:
                             bracketopencnt -= 1
                         i += 1
                     argstoken.pop()
+                    isprevbracketatom = True
                     if(self.isStatementWhitespace(argstoken)):
                         pass
                     else:
@@ -861,7 +865,7 @@ class Parser:
                                             temp[1])
                                         if(not validity1[0] or not validity2[0]):
                                             return (False, token)
-                    previoustoken = token
+
                     if(len(numberstack) == 0):
                         numberstack.append(token)
                         if(len(operatorstack) > 0 and self.isUnaryOperator(operatorstack[-1])):
@@ -892,8 +896,12 @@ class Parser:
                             bracketopencnt -= 1
                         i += 1
                     argstoken.pop()
+                    isprevbracketatom = True
                     if(self.isStatementWhitespace(argstoken)):
-                        pass
+                        if(previoustoken == None or not(self.isAtom(previoustoken))):
+                            pass
+                        else:
+                            return (False, token)
                     elif(previoustoken == None or not(self.isAtom(previoustoken))):
                         validity = self.parse_star_expression(argstoken)
                         if(not validity[0]):
@@ -902,15 +910,14 @@ class Parser:
                         validity = self.parse_star_expression(argstoken)
                         if(not validity[0]):
                             self.parse_slices(argstoken)
-                    previoustoken = token
                     if(len(numberstack) == 0):
                         numberstack.append(token)
                         if(len(operatorstack) > 0 and self.isUnaryOperator(operatorstack[-1])):
                             operatorstack.pop()
                     else:
-                        if(len(operatorstack) == 0 and len(numberstack) > 0):
+                        if(len(operatorstack) == 0 and len(numberstack) > 0 and not isprevbracketatom):
                             return (False, token)
-                        else:
+                        elif(len(operatorstack) != 0):
                             operator = operatorstack.pop()
                             while(len(operatorstack) > 0 and self.isUnaryOperator(operator)):
                                 operatorprev = operator
@@ -935,14 +942,17 @@ class Parser:
                     else:
                         bracketstack.pop()
                 elif(token.type == Keyword.IN and previoustoken != None and previoustoken.type == Keyword.NOT):
+                    isprevbracketatom = False
                     if(len(numberstack) == 0):
                         return (False, token)
                 elif(self.isBinaryOperator(token)):
+                    isprevbracketatom = False
                     if(len(numberstack) == 0):
                         return (False, token)
                     else:
                         operatorstack.append(token)
                 elif(self.isUnaryOperator(token)):
+                    isprevbracketatom = False
                     operatorstack.append(token)
                 else:
                     return (False, token)
