@@ -1,5 +1,4 @@
-# TBFO-Python-Parser
-TBFO Python Parser
+# Python Linter
 
 ## Requirements
 This program requires python 3.10.
