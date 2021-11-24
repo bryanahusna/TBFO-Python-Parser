@@ -142,7 +142,7 @@ class Parser:
             token = self.tokens[index]
         return token, index
 
-    def parse_block(self, block):
+    def parse_block(self):
         j = self.index - 1
         self.index = j - len(self.block) + 2
         self.next_statement()
@@ -308,7 +308,6 @@ class Parser:
                     self.tokens.pop(i - 1)
                 elif next_token.type == Literal.NEWLINE:
                     self.tokens.pop(j)
-                    self.tokens.pop(j)
                 else:
                     self.throw(token.starts_at,
                                "Syntax Error : Statements must be separated with a line break.")
@@ -320,6 +319,8 @@ class Parser:
                     self.tokens.pop(i)
                 if next_token.type in [Literal.ENDMARKER, Literal.NEWLINE]:
                     self.tokens.pop(j)
+                    i -= 1
+                    token = self.tokens[i]
                 else:
                     self.throw(token.starts_at,
                                "Syntax Error : Statements must be separated with line break.")
@@ -1429,7 +1430,7 @@ class Parser:
 
         right = sub_stmts[1]
         self.next_block()
-        self.parse_block(right)
+        self.parse_block()
 
     def parse_params(self, statement):
         sub_stmt = self.split(statement, Punctuation.COMMA)
@@ -1491,7 +1492,7 @@ class Parser:
 
         right = sub_stmts[1]
         self.next_block()
-        self.parse_block(right)
+        self.parse_block()
 
     def parse_arguments(self, statement):
         # args [','] &')'
@@ -1563,7 +1564,7 @@ class Parser:
 
         # parse block
         self.next_block()
-        self.parse_block(sub_stmts[-1])
+        self.parse_block()
 
     def parse_with_item(self, statement):
         # expression 'as' star_target
@@ -1599,7 +1600,7 @@ class Parser:
             first_token_index = 1
         if block_first_token.type == Literal.NEWLINE:
             self.next_block()
-            self.parse_block(self.block)
+            self.parse_block()
         else:
             self.parse_simple_statement(sub_stmts[1][first_token_index:])
         cindex = self.index
@@ -1631,7 +1632,7 @@ class Parser:
             first_token_index = 1
         if block_first_token.type == Literal.NEWLINE:
             self.next_block()
-            self.parse_block(self.block)
+            self.parse_block()
         else:
             self.parse_simple_statement(sub_stmts[1][first_token_index:])
         cindex = self.index
@@ -1666,7 +1667,7 @@ class Parser:
             token = statement[i]
         if token.type == Literal.NEWLINE:
             self.next_block()
-            self.parse_block(self.block)
+            self.parse_block()
         else:
             self.parse_simple_statement(statement[i:])
 
@@ -1688,7 +1689,7 @@ class Parser:
             first_token_index = 1
         if block_first_token.type == Literal.NEWLINE:
             self.next_block()
-            self.parse_block(self.block)
+            self.parse_block()
         else:
             self.parse_simple_statement(sub_stmts[1][first_token_index:])
 
@@ -1730,7 +1731,7 @@ class Parser:
             first_token_index = 1
         if block_first_token.type == Literal.NEWLINE:
             self.next_block()
-            self.parse_block(self.block)
+            self.parse_block()
         else:
             self.parse_simple_statement(sub_stmts[1][first_token_index:])
 
