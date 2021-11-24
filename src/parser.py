@@ -15,6 +15,7 @@ class Parser:
         self.loop_stack = []    # type: list[TokenType]
         self.func_stack = []
         self.try_stack = 0
+        self.block_stack = 0
 
     def parse(self, filename):
         with open(filename, encoding="utf-8") as f:
@@ -98,7 +99,7 @@ class Parser:
                        "Bracket Error : All brackets are not fully closed.")
         if indent_stack != 0:
             self.throw(token.starts_at,
-                       "Indentation Error : Found indentation in a single statement.")
+                       "Indentation Error : Found indentation in a simple statement.")
         self.condense_statement()
 
     def condense_statement(self):
@@ -117,6 +118,7 @@ class Parser:
         indent_stack = 0
         past = False
         self.block = []
+        self.block_stack += 1
         token = self.tokens[self.index]
         while indent_stack != 0 or not past:
             # Ignore comment
@@ -150,7 +152,8 @@ class Parser:
             if self.index >= j:
                 break
             self.next_statement()
-        self.index = j + 1
+        self.index = j + self.block_stack
+        self.block_stack -= 1
 
     def parse_simple_statement(self, statement):
         # ENDMARKER only statement
