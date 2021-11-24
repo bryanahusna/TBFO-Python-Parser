@@ -257,8 +257,8 @@ class Parser:
                     self.throw(first_token.starts_at,
                                "Syntax Error : return keyword must be place inside a function.")
             # Assignment/expression statement
-            #case Literal.NAME:
-            # Assignment dan expression dipindahkan ke case default   
+            # case Literal.NAME:
+            # Assignment dan expression dipindahkan ke case default
             # Function definition statement
             case Keyword.DEF:
                 self.func_stack.append(Keyword.DEF)
@@ -292,7 +292,7 @@ class Parser:
                     self.parse_assignment(statement)
                 except:
                     self.parse_expression(statement)
-                #self.throw(first_token.starts_at,
+                # self.throw(first_token.starts_at,
                 #           "Syntax Error : Unexpected statement first token.")
 
     def whitespace_only_until(self, index):
@@ -434,7 +434,8 @@ class Parser:
             elif(statement[i].type == Literal.NAME):
                 namecount += 1
             elif(statement[i].type == Operator.ASSIGNMENT):
-                (isstarexpr, token) = self.parse_star_expression(statement[i+1:])
+                (isstarexpr, token) = self.parse_star_expression(
+                    statement[i+1:])
                 if(namecount == 1 and isstarexpr):
                     return True
                 else:
@@ -464,7 +465,8 @@ class Parser:
             else:
                 (isstartarget, idx) = self.parse_star_target_multiple(
                     statement[i:])
-                (isstarexpression, token) = self.parse_star_expression(statement[i:])
+                (isstarexpression, token) = self.parse_star_expression(
+                    statement[i:])
                 if(isstartarget and not islastexpr):
                     startargetcount += 1
                     i += idx
@@ -643,7 +645,7 @@ class Parser:
                     else:
                         return (False, token)
                 elif(token.type == Punctuation.BRACKET_OPEN):
-                    #bracketstack.append(Punctuation.BRACKET_OPEN)
+                    # bracketstack.append(Punctuation.BRACKET_OPEN)
                     argstoken = []
                     bracketopencnt = 1
                     token = subexprs[j][i]
@@ -664,19 +666,25 @@ class Parser:
                     else:
                         validity = self.parse_star_expression(argstoken)
                         if(not validity[0]):
-                            kwds = self.split_one_level(argstoken, Punctuation.COMMA)
+                            kwds = self.split_one_level(
+                                argstoken, Punctuation.COMMA)
                             for k in range(len(kwds)):
-                                if(self.isStatementWhitespace(kwds[k]) and k != (len(kwds)-1)):     # Jika kosong, tidak valid
+                                # Jika kosong, tidak valid
+                                if(self.isStatementWhitespace(kwds[k]) and k != (len(kwds)-1)):
                                     return (False, token)
-                                elif(self.isStatementWhitespace(kwds[k]) and k == (len(kwds)-1)):   # Jika kosong tapi di akhir (ada koma di akhir), valid
+                                # Jika kosong tapi di akhir (ada koma di akhir), valid
+                                elif(self.isStatementWhitespace(kwds[k]) and k == (len(kwds)-1)):
                                     pass
                                 else:
-                                    temp = self.split_one_level(kwds[k], Punctuation.COLON)
+                                    temp = self.split_one_level(
+                                        kwds[k], Punctuation.COLON)
                                     if(len(temp) == 1 or len(temp) > 2):
                                         return (False, token)
                                     else:
-                                        validity1 = self.parse_star_expression(temp[0])
-                                        validity2 = self.parse_star_expression(temp[1])
+                                        validity1 = self.parse_star_expression(
+                                            temp[0])
+                                        validity2 = self.parse_star_expression(
+                                            temp[1])
                                         if(not validity1[0] or not validity2[0]):
                                             return (False, token)
                     # elif(previoustoken == None or not(self.isAtom(previoustoken))):
@@ -711,12 +719,12 @@ class Parser:
                     if(self.isStatementWhitespace(argstoken)):
                         pass
                     elif(previoustoken == None or not(self.isAtom(previoustoken))):
-                        #self.parse_arguments(argstoken)
+                        # self.parse_arguments(argstoken)
                         validity = self.parse_star_expression(argstoken)
                         if(not validity[0]):
                             return (False, token)
                     elif(self.isAtom(previoustoken)):
-                        #self.parse_arguments(argstoken)
+                        # self.parse_arguments(argstoken)
                         validity = self.parse_star_expression(argstoken)
                         if(not validity[0]):
                             self.parse_slices(argstoken)
@@ -751,7 +759,7 @@ class Parser:
                 if(token.type != Literal.WHITESPACE and token.type != Literal.NEWLINE):
                     previoustoken = token
                 i += 1
-            
+
             if(len(operatorstack) > 0):
                 return (False, token)
         return (True, token)
@@ -760,7 +768,8 @@ class Parser:
         # statement berisi potongan ekspresi yang ingin dicek
         (isvalid, lasttoken) = self.parse_star_expression(statement)
         if(not isvalid):
-            self.throw(lasttoken.starts_at, "Syntax Error : Invalid expression.")
+            self.throw(lasttoken.starts_at,
+                       "Syntax Error : Invalid expression.")
 
     # def parse_complex_atom(self, statement):
     #     # Return (True/False, perubahan indeks token)
@@ -785,11 +794,13 @@ class Parser:
                     isempty = False
                     return
             if(isempty):
-                self.throw(statement[0].starts_at, "Syntax Error : Invalid expression.")
+                self.throw(statement[0].starts_at,
+                           "Syntax Error : Invalid expression.")
             else:
                 self.parse_expression(subexprs[0])
         elif(len(subexprs) > 3):
-            self.throw(statement[0].starts_at, "Syntax Error : Invalid expression.")
+            self.throw(statement[0].starts_at,
+                       "Syntax Error : Invalid expression.")
         else:
             for i in range(len(subexprs)):
                 if(self.isStatementWhitespace(subexprs[i])):
@@ -1606,11 +1617,14 @@ class Parser:
 
     def throw(self, at, message):
         i = 0
+        l = len(self.tokens)
         while self.tokens[i].starts_at[0] != at[0]:
             i += 1
-        while self.tokens[i].starts_at[0] == at[0] and self.tokens[i].type != Literal.ENDMARKER:
+        while i < l and self.tokens[i].starts_at[0] == at[0] and self.tokens[i].type != Literal.ENDMARKER:
             print(self.tokens[i].value, end="")
             i += 1
+        if self.tokens[i - 1].value != '\n':
+            print()
         print(f"{' ' * at[1]}^^^")
         print(f"An error found at {at[0] + 1}:{at[1] + 1}")
         print(message)
