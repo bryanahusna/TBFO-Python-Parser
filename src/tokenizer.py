@@ -418,7 +418,7 @@ class Tokenizer:
                 )
                 self.push_token()
             elif char_code == 45:
-                if (self.has_token() and type(self.last_not_whitespace_token().type) != Operator):
+                if self.has_token() and self.last_not_whitespace_token() and type(self.last_not_whitespace_token().type) != Operator:
                     self.current_token = Token(
                         Operator.SUBTRACTION, char, (self.line, self.col))
                 else:

@@ -680,7 +680,12 @@ class Parser:
             self.parse_t_primary(t_primary)
 
         else:
-            self.parse_atom(statement)
+            if len(statement) > 1:
+                self.throw(statement[0].starts_at,
+                           "Syntax Error : Invalid target.")
+            elif not self.isAtom(statement[0]):
+                self.throw(statement[0].starts_at,
+                           "Syntax Error : Invalid target.")
 
     def parse_star_atom(self, statement):
         statement = self.trim(statement)
