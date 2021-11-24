@@ -312,6 +312,10 @@ class Parser:
 
             if token.type == Literal.ENDMARKER:
                 end_marker = self.tokens.pop()
+                self.tokens.append(Token(
+                    Literal.NEWLINE, "",
+                    end_marker.starts_at
+                ))
                 for j in range(len(indent_stack)):
                     self.tokens.append(Token(
                         Indentation.DEDENT, "",
