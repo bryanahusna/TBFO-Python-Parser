@@ -58,6 +58,12 @@ class Tokenizer:
                     self.current_token.append(char)
                     if data["negative"] and not data["has_read_numbers"]:
                         self.current_token.set_data("has_read_numbers", True)
+                elif char == "=" and data["negative"] and not data["has_read_numbers"]:
+                    self.current_token.append(char)
+                    self.current_token = Token(
+                        Operator.AUGMENTED_SUBTRACTION, self.current_token.value,
+                        self.current_token.starts_at
+                    )
                 elif char == "." and not data["past_decimal"]:
                     self.current_token.append(char)
                     self.current_token.set_data("past_decimal", True)
@@ -179,6 +185,9 @@ class Tokenizer:
                 if char == "=":
                     self.current_token = Token(
                         Operator.AUGMENTED_DIVISION, "/=", self.current_token.starts_at)
+                elif char == "/":
+                    self.current_token = Token(
+                        Operator.FLOOR_DIVISION, "//", self.current_token.starts_at)
                 else:
                     self.push_token()
                     self.push(char)

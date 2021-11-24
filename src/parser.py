@@ -433,43 +433,48 @@ class Parser:
             except:
                 self.try_stack -= 1
                 self.parse_assignment_augmented(statement)
-        if(self.try_stack > 0):
-            raise SyntaxError("Error assignment")
 
     def parse_assignment_simple(self, statement):
         subexpr = self.split_one_level(statement, Operator.ASSIGNMENT)
         if(len(subexpr) != 2):
             self.throw(self.tokens[self.index],
-                           "Syntax Error : Invalid target")
-        
+                       "Syntax Error : Invalid target")
+
         self.parse_star_target_single(subexpr[0])   # Bagian kiri harus target
-        self.parse_expression(subexpr[1])           # Bagian kanan harus ekspresi
+        # Bagian kanan harus ekspresi
+        self.parse_expression(subexpr[1])
 
     def parse_assignment_multiple_targets(self, statement):
         subexpr = self.split_one_level(statement, Operator.ASSIGNMENT)
         i = 0
         n = len(subexpr)
         while(i < n-1):
-            self.parse_star_target_single(subexpr[i])   # Cek tiap variabel target (a = b = c = ekspr, a b dan c harus target)
+            # Cek tiap variabel target (a = b = c = ekspr, a b dan c harus target)
+            self.parse_star_target_single(subexpr[i])
             i += 1
         if(n > 0):
-            self.parse_expression(subexpr[n-1])         # Pecahan terakhir harus ekspresi
+            # Pecahan terakhir harus ekspresi
+            self.parse_expression(subexpr[n-1])
         else:
             self.throw(self.tokens[self.index],
-                           "Syntax Error : Invalid target")
+                       "Syntax Error : Invalid target")
 
     def parse_assignment_augmented(self, statement):
         i = 0
         n = len(statement)
         while(i < n):
-            if(self.isAugassignOperator(statement[i])):     # Mencari operator augassign
+            # Mencari operator augassign
+            if(self.isAugassignOperator(statement[i])):
                 break
             else:
                 i += 1
         if(i == n):
-            self.throw(self.tokens[self.index], "Syntax Error : Invalid target")
-        self.parse_star_target_single(statement[:i])        # Bagian kiri harus single target
-        self.parse_expression(statement[i+1:])              # Bagian kanan harus ekspresi
+            self.throw(self.tokens[self.index],
+                       "Syntax Error : Invalid target")
+        # Bagian kiri harus single target
+        self.parse_star_target_single(statement[:i])
+        # Bagian kanan harus ekspresi
+        self.parse_expression(statement[i+1:])
 
     def isAugassignOperator(self, token):
         if(token.type == Operator.AUGMENTED_ADDITION or token.type == Operator.AUGMENTED_SUBTRACTION or token.type == Operator.MULTIPLICATION or
