@@ -1,9 +1,10 @@
 for i in range(10):
     print(i)
 
+
 def func4(a, b, c):
     x = c
-x -= b
+    x -= b
     y = x
     y += x
     y = y // 2
