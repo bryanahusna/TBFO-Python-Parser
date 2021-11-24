@@ -190,7 +190,6 @@ class Parser:
         # print()
 
         first_token = statement[0]      # type: Token
-
         # TODO: Cek setiap token awal yang mungkin sebagai
         # simple_statement
 
@@ -421,8 +420,6 @@ class Parser:
         return l
 
     def parse_assignment(self, statement):
-        i = 0
-        n = len(statement)
         try:
             self.try_stack += 1
             self.parse_assignment_simple(statement)
@@ -436,84 +433,43 @@ class Parser:
             except:
                 self.try_stack -= 1
                 self.parse_assignment_augmented(statement)
-        self.throw(statement[0].starts_at,
-                   "Syntax Error : Invalid assignment expression.")
+        if(self.try_stack > 0):
+            raise SyntaxError("Error assignment")
 
     def parse_assignment_simple(self, statement):
-        namecount = 0
-        for i in range(len(statement)):
-            if(statement[i].type == Literal.WHITESPACE or statement[i].type == Literal.NEWLINE):
-                pass
-            elif(statement[i].type == Literal.NAME):
-                namecount += 1
-            elif(statement[i].type == Operator.ASSIGNMENT):
-                (isstarexpr, token) = self.parse_star_expression(
-                    statement[i+1:])
-                if(namecount == 1 and isstarexpr):
-                    return True
-                else:
-                    return False
-            else:
-                return False
-        return True
+        subexpr = self.split_one_level(statement, Operator.ASSIGNMENT)
+        if(len(subexpr) != 2):
+            self.throw(self.tokens[self.index],
+                           "Syntax Error : Invalid target")
+        
+        self.parse_star_target_single(subexpr[0])   # Bagian kiri harus target
+        self.parse_expression(subexpr[1])           # Bagian kanan harus ekspresi
 
     def parse_assignment_multiple_targets(self, statement):
+        subexpr = self.split_one_level(statement, Operator.ASSIGNMENT)
         i = 0
-        n = len(statement)
-        # for token in statement:
-        #     print(token.type.name)
-        # print("#########")
-        assignmentcount = 0
-        startargetcount = 0
-        isfirststar = True
-        islastexpr = False
-        while(i < n):
-            if(statement[i].type == Literal.WHITESPACE or statement[i].type == Literal.NEWLINE):
-                pass
-            elif(statement[i].type == Operator.ASSIGNMENT):
-                if(startargetcount < assignmentcount):
-                    return False
-                else:
-                    assignmentcount += 1
-            else:
-                (isstartarget, idx) = self.parse_star_target_multiple(
-                    statement[i:])
-                (isstarexpression, token) = self.parse_star_expression(
-                    statement[i:])
-                if(isstartarget and not islastexpr):
-                    startargetcount += 1
-                    i += idx
-                elif(isstarexpression and not islastexpr):
-                    islastexpr = True
-                else:
-                    return False
+        n = len(subexpr)
+        while(i < n-1):
+            self.parse_star_target_single(subexpr[i])   # Cek tiap variabel target (a = b = c = ekspr, a b dan c harus target)
             i += 1
-        if(startargetcount <= assignmentcount):
-            return False
+        if(n > 0):
+            self.parse_expression(subexpr[n-1])         # Pecahan terakhir harus ekspresi
         else:
-            return True
+            self.throw(self.tokens[self.index],
+                           "Syntax Error : Invalid target")
 
     def parse_assignment_augmented(self, statement):
-        (isstartarget, idx) = self.parse_star_target_single(statement)
-        i = idx + 1
+        i = 0
         n = len(statement)
-        if(not isstartarget):
-            return False
-
         while(i < n):
-            if(statement[i].type == Literal.WHITESPACE or statement[i].type == Literal.NEWLINE):
-                pass
-            elif(self.isAugassignOperator(statement[i])):
-                i += 1
+            if(self.isAugassignOperator(statement[i])):     # Mencari operator augassign
                 break
             else:
-                return False
-            i += 1
-        (isexpression, token) = self.parse_star_expression(statement[i:])
-        if(isexpression):
-            return True
-        else:
-            return False
+                i += 1
+        if(i == n):
+            self.throw(self.tokens[self.index], "Syntax Error : Invalid target")
+        self.parse_star_target_single(statement[:i])        # Bagian kiri harus single target
+        self.parse_expression(statement[i+1:])              # Bagian kanan harus ekspresi
 
     def isAugassignOperator(self, token):
         if(token.type == Operator.AUGMENTED_ADDITION or token.type == Operator.AUGMENTED_SUBTRACTION or token.type == Operator.MULTIPLICATION or
@@ -525,6 +481,7 @@ class Parser:
             return False
 
     def parse_star_target_single(self, statement):
+
         if len(statement) == 0:
             self.throw(self.tokens[self.index],
                        "Syntax Error : Empty target")
@@ -1892,6 +1849,7 @@ class Parser:
 
     def throw(self, at, message):
         if self.try_stack == 0:
+            #raise SyntaxError("Error di sini")
             i = 0
             l = len(self.tokens)
             while self.tokens[i].starts_at[0] != at[0]:
