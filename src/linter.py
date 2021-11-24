@@ -12,3 +12,4 @@ parser = Parser()
 parser.parse(filename)
 
 print("No error(s) found.")
+print("Your code is accepted.")

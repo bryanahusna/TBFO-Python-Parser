@@ -14,6 +14,7 @@ class Parser:
         self.index = 0
         self.loop_stack = []    # type: list[TokenType]
         self.func_stack = []
+        self.trying = False
 
     def parse(self, filename):
         with open(filename, encoding="utf-8") as f:
@@ -289,8 +290,10 @@ class Parser:
             # Invalid first token
             case _:
                 try:
+                    self.trying = True
                     self.parse_assignment(statement)
                 except:
+                    self.trying = False
                     self.parse_expression(statement)
                 # self.throw(first_token.starts_at,
                 #           "Syntax Error : Unexpected statement first token.")
@@ -516,13 +519,32 @@ class Parser:
             return False
 
     def parse_star_target_single(self, statement):
+        if len(statement) == 0:
+            self.throw(self.tokens[self.index],
+                       "Syntax Error : Empty target")
+
+        if statement[0].type == Operator.MULTIPLICATION:
+            if len(statement) == 1:
+                self.throw(self.tokens[self.index],
+                           "Syntax Error : Invalid target")
+            self.parse_target_with_star_atom(statement[1:])
+        else:
+            self.parse_target_with_star_atom(statement)
+
+    def parse_target_with_star_atom(self, statement):
         # Mengembalikan apakah star target valid, serta indeks token terakhir di statement
         i = 0
-        n = len(statement)
         statement = self.trim(statement)
         if len(statement) == 0:
             self.throw(self.tokens[self.index],
                        "Syntax Error : Empty target.")
+
+        if statement[0].type == Operator.MULTIPLICATION:
+            if len(statement) == 1:
+                self.throw(statement[0].starts_at,
+                           "Syntax Error : Invalid target.")
+            statement = statement[1:]
+
         last_token = statement[-1]
         if last_token.type in [Punctuation.BRACKET_OPEN,
                                Punctuation.PARENTHESIS_OPEN,
@@ -530,26 +552,243 @@ class Parser:
             self.throw(last_token.starts_at,
                        "Syntax Error : Invalid target.")
 
-        while(i < n):
-            if(statement[i].type == Literal.WHITESPACE or statement[i].type == Literal.NEWLINE):
-                pass
-            elif(statement[i].type == Literal.NAME):
-                return (True, i)
-            i += 1
-        return (False, i)
+        if last_token.type == Literal.NAME:
+            i = - 2
+            if len(statement) == 1:
+                return
+            last_token = statement[-2]
+            if last_token.type == Literal.WHITESPACE:
+                i -= 1
+                last_token = statement[i]
+                if len(statement) == 2:
+                    return
+
+            if last_token.type == Punctuation.ACCESSOR:
+                sub_stmt = statement[:i]
+                self.parse_t_primary(sub_stmt)
+            else:
+                self.throw(last_token.starts_at,
+                           "Syntax Error : Invalid target.")
+
+            last_token = statement[-2]
+
+        elif last_token.type == Punctuation.SQUARE_BRACKET_CLOSE:
+            sub_stmt = []
+            sub_stmt.append(last_token.type)
+            bracket_stack = [last_token]
+            i = len(statement) - 2
+            while i >= 0 and bracket_stack != 0:
+                token = statement[i]
+                sub_stmt.append(token)
+                if token.type in [Punctuation.SQUARE_BRACKET_CLOSE, Punctuation.BRACKET_CLOSE,
+                                  Punctuation.PARENTHESIS_CLOSE]:
+                    bracket_stack.append(token.type)
+                if token.type == Punctuation.SQUARE_BRACKET_OPEN:
+                    if len(bracket_stack) == 0 or bracket_stack[-1] != Punctuation.SQUARE_BRACKET_CLOSE:
+                        self.throw(token.starts_at,
+                                   "Bracket Error : Bracket mismatch.")
+                if token.type == Punctuation.BRACKET_OPEN:
+                    if len(bracket_stack) == 0 or bracket_stack[-1] != Punctuation.BRACKET_CLOSE:
+                        self.throw(token.starts_at,
+                                   "Bracket Error : Bracket mismatch.")
+                if token.type == Punctuation.PARENTHESIS_OPEN:
+                    if len(bracket_stack) == 0 or bracket_stack[-1] != Punctuation.PARENTHESIS_CLOSE:
+                        self.throw(token.starts_at,
+                                   "Bracket Error : Bracket mismatch.")
+                i -= 1
+
+            sub_stmt.reverse()
+
+            if len(bracket_stack) != 0:
+                self.throw(sub_stmt[-1].starts_at,
+                           "Bracket Error : Bracket mismatch.")
+            elif i == 0:
+                self.throw(sub_stmt[0].starts_at,
+                           "Syntax Error : Invalid target.")
+            elif len(sub_stmt) == 2:
+                self.throw(sub_stmt[0].starts_at,
+                           "Index Error : Invalid index.")
+
+            slices = sub_stmt[1:-1]
+            t_primary = statement[:len(statement) - len(sub_stmt)]
+            self.parse_slices(slices)
+            self.parse_t_primary(t_primary)
+
+        else:
+            self.parse_star_atom(statement)
+
+    def parse_t_primary(self, statement):
+        i = 0
+        statement = self.trim(statement)
+        if len(statement) == 0:
+            self.throw(self.tokens[self.index],
+                       "Syntax Error : Empty target.")
+
+        if statement[0].type == Operator.MULTIPLICATION:
+            if len(statement) == 1:
+                self.throw(statement[0].starts_at,
+                           "Syntax Error : Invalid target.")
+            statement = statement[1:]
+
+        last_token = statement[-1]
+        if last_token.type in [Punctuation.BRACKET_OPEN,
+                               Punctuation.PARENTHESIS_OPEN,
+                               Punctuation.SQUARE_BRACKET_OPEN]:
+            self.throw(last_token.starts_at,
+                       "Syntax Error : Invalid target.")
+
+        if last_token.type == Literal.NAME:
+            i = - 2
+            if len(statement) == 1:
+                return
+            last_token = statement[-2]
+            if last_token.type == Literal.WHITESPACE:
+                i -= 1
+                last_token = statement[i]
+                if len(statement) == 2:
+                    return
+
+            if last_token.type == Punctuation.ACCESSOR:
+                sub_stmt = statement[:i]
+                self.parse_t_primary(sub_stmt)
+            else:
+                self.throw(last_token.starts_at,
+                           "Syntax Error : Invalid target.")
+
+            last_token = statement[-2]
+
+        elif last_token.type == Punctuation.SQUARE_BRACKET_CLOSE:
+            sub_stmt = []
+            sub_stmt.append(last_token.type)
+            bracket_stack = [last_token]
+            i = len(statement) - 2
+            while i >= 0 and bracket_stack != 0:
+                token = statement[i]
+                sub_stmt.append(token)
+                if token.type in [Punctuation.SQUARE_BRACKET_CLOSE, Punctuation.BRACKET_CLOSE,
+                                  Punctuation.PARENTHESIS_CLOSE]:
+                    bracket_stack.append(token.type)
+                if token.type == Punctuation.SQUARE_BRACKET_OPEN:
+                    if len(bracket_stack) == 0 or bracket_stack[-1] != Punctuation.SQUARE_BRACKET_CLOSE:
+                        self.throw(token.starts_at,
+                                   "Bracket Error : Bracket mismatch.")
+                if token.type == Punctuation.BRACKET_OPEN:
+                    if len(bracket_stack) == 0 or bracket_stack[-1] != Punctuation.BRACKET_CLOSE:
+                        self.throw(token.starts_at,
+                                   "Bracket Error : Bracket mismatch.")
+                if token.type == Punctuation.PARENTHESIS_OPEN:
+                    if len(bracket_stack) == 0 or bracket_stack[-1] != Punctuation.PARENTHESIS_CLOSE:
+                        self.throw(token.starts_at,
+                                   "Bracket Error : Bracket mismatch.")
+                i -= 1
+
+            sub_stmt.reverse()
+
+            if len(bracket_stack) != 0:
+                self.throw(sub_stmt[-1].starts_at,
+                           "Bracket Error : Bracket mismatch.")
+            elif i == 0:
+                self.throw(sub_stmt[0].starts_at,
+                           "Syntax Error : Invalid target.")
+            elif len(sub_stmt) == 2:
+                self.throw(sub_stmt[0].starts_at,
+                           "Index Error : Invalid index.")
+
+            slices = sub_stmt[1:-1]
+            t_primary = statement[:len(statement) - len(sub_stmt)]
+            self.parse_slices(slices)
+            self.parse_t_primary(t_primary)
+
+        elif last_token.type == Punctuation.PARENTHESIS_CLOSE:
+            sub_stmt = []
+            sub_stmt.append(last_token.type)
+            bracket_stack = [last_token]
+            i = len(statement) - 2
+            while i >= 0 and bracket_stack != 0:
+                token = statement[i]
+                sub_stmt.append(token)
+                if token.type in [Punctuation.SQUARE_BRACKET_CLOSE, Punctuation.BRACKET_CLOSE,
+                                  Punctuation.PARENTHESIS_CLOSE]:
+                    bracket_stack.append(token.type)
+                if token.type == Punctuation.SQUARE_BRACKET_OPEN:
+                    if len(bracket_stack) == 0 or bracket_stack[-1] != Punctuation.SQUARE_BRACKET_CLOSE:
+                        self.throw(token.starts_at,
+                                   "Bracket Error : Bracket mismatch.")
+                if token.type == Punctuation.BRACKET_OPEN:
+                    if len(bracket_stack) == 0 or bracket_stack[-1] != Punctuation.BRACKET_CLOSE:
+                        self.throw(token.starts_at,
+                                   "Bracket Error : Bracket mismatch.")
+                if token.type == Punctuation.PARENTHESIS_OPEN:
+                    if len(bracket_stack) == 0 or bracket_stack[-1] != Punctuation.PARENTHESIS_CLOSE:
+                        self.throw(token.starts_at,
+                                   "Bracket Error : Bracket mismatch.")
+                i -= 1
+
+            sub_stmt.reverse()
+
+            if len(bracket_stack) != 0:
+                self.throw(sub_stmt[-1].starts_at,
+                           "Bracket Error : Bracket mismatch.")
+            elif i == 0:
+                self.throw(sub_stmt[0].starts_at,
+                           "Syntax Error : Invalid target.")
+            elif len(sub_stmt) == 2:
+                self.throw(sub_stmt[0].starts_at,
+                           "Index Error : Invalid index.")
+
+            arguments = sub_stmt[1:-1]
+            t_primary = statement[:len(statement) - len(sub_stmt)]
+            self.parse_arguments(arguments)
+            self.parse_t_primary(t_primary)
+
+        else:
+            self.parse_atom(statement)
+
+    def parse_star_atom(self, statement):
+        statement = self.trim(statement)
+        if len(statement) < 2:
+            if len(statement) != 0:
+                self.throw(statement[0].starts_at,
+                           "Syntax Error : Invalid target.")
+            else:
+                self.throw(self.tokens[self.index].starts_at,
+                           "Syntax Error : Invalid target.")
+        first_token = statement[0]
+        if first_token.type not in [Punctuation.PARENTHESIS_OPEN, Punctuation.SQUARE_BRACKET_OPEN]:
+            self.throw(first_token.starts_at,
+                       "Syntax Error : Unexpected token.")
+        last_token = statement[-1]
+        if first_token.type == Punctuation.PARENTHESIS_OPEN and last_token != Punctuation.PARENTHESIS_CLOSE:
+            self.throw(last_token.starts_at,
+                       "Bracket Error : Parenthesis mismatch.")
+        if first_token.type == Punctuation.SQUARE_BRACKET_OPEN and last_token != Punctuation.SQUARE_BRACKET_CLOSE:
+            self.throw(last_token.starts_at,
+                       "Bracket Error : Brakcet mismatch.")
+        sub_stmt = statement[1:-1]
+        if len(sub_stmt) == 0:
+            return
+        else:
+            if sub_stmt[-1].type == Punctuation.COMMA:
+                sub_stmt = sub_stmt[:-1]
+            if first_token.type == Punctuation.PARENTHESIS_OPEN:
+                self.parse_star_target_multiple(sub_stmt)
+            else:
+                try:
+                    self.trying = True
+                    self.parse_target_with_star_atom(sub_stmt)
+                except:
+                    self.trying = False
+                    self.parse_star_target_multiple(sub_stmt)
 
     def parse_star_target_multiple(self, statement):
         # Mengembalikan apakah star target valid, serta indeks token terakhir di statement
-        # TODO: handle koma (dianggap jadi satu target)
-        i = 0
-        n = len(statement)
-        while(i < n):
-            if(statement[i].type == Literal.WHITESPACE or statement[i].type == Literal.NEWLINE):
-                pass
-            elif(statement[i].type == Literal.NAME):
-                return (True, i)
-            i += 1
-        return (False, i)
+        statement = self.trim(statement)
+        if len(statement) == 0:
+            self.throw(self.tokens[self.index],
+                       "Syntax Error : Empty target")
+        targets = self.split_args(statement)
+        for target in targets:
+            self.parse_star_target_single(target)
 
     def parse_star_expression(self, statement):
         # return True jika ekspresi valid, false jika tidak
@@ -1456,7 +1695,7 @@ class Parser:
         if len(sub_stmts) != 2:
             self.throw(token.starts_at,
                        "Syntax Error : Too many colons.")
-        self.parse_expression(sub_stmts[0])
+        self.parse_named_expression(sub_stmts[0])
 
         block_first_token = sub_stmts[1][0]
         first_token_index = 0
@@ -1488,7 +1727,7 @@ class Parser:
         if len(sub_stmts) != 2:
             self.throw(token.starts_at,
                        "Syntax Error : Too many colons.")
-        self.parse_expression(sub_stmts[0])
+        self.parse_named_expression(sub_stmts[0])
 
         block_first_token = sub_stmts[1][0]
         first_token_index = 0
@@ -1545,7 +1784,7 @@ class Parser:
         if len(sub_stmts) != 2:
             self.throw(token.starts_at,
                        "Syntax Error : Too many colons.")
-        self.parse_expression(sub_stmts[0])
+        self.parse_named_expression(sub_stmts[0])
 
         block_first_token = sub_stmts[1][0]
         first_token_index = 0
@@ -1618,13 +1857,11 @@ class Parser:
     def parse_named_expression(self, statement):
         statement = self.trim(statement)
         try:
-            self.parse_assignment_expression(statement)
-            # ^^ ini masuk mana wkwk
+            self.trying = True
+            self.parse_assignment(statement)
         except:
+            self.trying = False
             self.parse_expression(statement)
-
-    def parse_assignment_expression(self, statement):
-        pass
 
     def trim(self, statement):
         if(len(statement) == 0):
@@ -1646,18 +1883,19 @@ class Parser:
         return statement[i:]
 
     def throw(self, at, message):
-        i = 0
-        l = len(self.tokens)
-        while self.tokens[i].starts_at[0] != at[0]:
-            i += 1
-        while i < l and self.tokens[i].starts_at[0] == at[0] and self.tokens[i].type != Literal.ENDMARKER:
-            print(self.tokens[i].value, end="")
-            i += 1
-        if self.tokens[i - 1].value != '\n':
-            print()
-        print(f"{' ' * at[1]}^^^")
-        print(f"An error found at {at[0] + 1}:{at[1] + 1}")
-        print(message)
+        if not self.trying:
+            i = 0
+            l = len(self.tokens)
+            while self.tokens[i].starts_at[0] != at[0]:
+                i += 1
+            while i < l and self.tokens[i].starts_at[0] == at[0] and self.tokens[i].type != Literal.ENDMARKER:
+                print(self.tokens[i].value, end="")
+                i += 1
+            if self.tokens[i - 1].value != '\n':
+                print()
+            print(f"{' ' * at[1]}^^^")
+            print(f"An error found at {at[0] + 1}:{at[1] + 1}")
+            print(message)
         exit(1)
 
 
