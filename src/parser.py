@@ -1586,7 +1586,7 @@ class Parser:
         if token.type != Keyword.IF:
             self.throw(token.starts_at,
                        "Syntax Error : Unexpected token. Expected if keyword.")
-        sub_stmts = self.split(statement[2:], Punctuation.COLON)
+        sub_stmts = self.split(statement[1:], Punctuation.COLON)
         if len(sub_stmts) != 2:
             self.throw(token.starts_at,
                        "Syntax Error : Too many colons.")
@@ -1618,7 +1618,7 @@ class Parser:
         if token.type != Keyword.ELIF:
             self.throw(token.starts_at,
                        "Syntax Error : Unexpected token. Expected elif keyword.")
-        sub_stmts = self.split(statement[2:], Punctuation.COLON)
+        sub_stmts = self.split(statement[1:], Punctuation.COLON)
         if len(sub_stmts) != 2:
             self.throw(token.starts_at,
                        "Syntax Error : Too many colons.")
@@ -1675,7 +1675,7 @@ class Parser:
         if token.type != Keyword.WHILE:
             self.throw(token.starts_at,
                        "Syntax Error : Unexpected token. Expected while keyword.")
-        sub_stmts = self.split(statement[2:], Punctuation.COLON)
+        sub_stmts = self.split(statement[1:], Punctuation.COLON)
         if len(sub_stmts) != 2:
             self.throw(token.starts_at,
                        "Syntax Error : Too many colons.")
@@ -1706,7 +1706,7 @@ class Parser:
         if token.type != Keyword.FOR:
             self.throw(token.starts_at,
                        "Syntax Error : Unexpected token. Expected for keyword.")
-        sub_stmts = self.split(statement[2:], Punctuation.COLON)
+        sub_stmts = self.split(statement[1:], Punctuation.COLON)
         if len(sub_stmts) != 2:
             self.throw(token.starts_at,
                        "Syntax Error : Too many colons.")
