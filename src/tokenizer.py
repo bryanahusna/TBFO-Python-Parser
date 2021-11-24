@@ -36,6 +36,11 @@ class Tokenizer:
                     self.current_token.type == Literal.STRING
                 elif token_type == Transition.DOUBLE_DOT:
                     raise SyntaxError("")
+                elif token_type == Literal.NAME:
+                    name = self.current_token.value
+                    if name in keywords.keys():
+                        self.current_token = Token(keywords[name], name,
+                                                   self.current_token.starts_at)
                 self.push_token()
                 self.push(char)
             elif token_type == Literal.NAME:
