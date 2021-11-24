@@ -20,3 +20,9 @@ Such keywords are (but not limited to) `async`, `await`, `global`, `nonlocal`, `
 This linter is also not handling some of the relatively new python operators such as the matrix
 multiplication operator `@`. Some of the relatively new statements that is available in python
 are also not handled (e.g. the `match` statement).
+
+## Contributors
+All thanks goes to these people that contribute to this project.
+* [Hafidz Nur Rahman Ghozali](https://github.com/hafidznrg) (13520117)
+* [Bryan Amirul Husna](https://github.com/bryanahusna) (13520146)
+* [Raden Rifqi Rahman](https://github.com/Radenz) (13520166)
