@@ -1,2 +1,2 @@
-def ma():
+def func():
     pass
