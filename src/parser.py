@@ -846,6 +846,9 @@ class Parser:
            token.type == Operator.DIVISION or token.type == Operator.FLOOR_DIVISION or token.type == Operator.MODULUS or token.type == Operator.EXPONENTIATION):
             return True
 
+        if token.type in [Keyword.IN, Keyword.IS]:
+            return True
+
         return False
 
     def print_statements(self, statements, level=0):
@@ -1556,10 +1559,12 @@ class Parser:
         left_sub_stmts = self.split(sub_stmts[0], Keyword.IN)
         if len(left_sub_stmts) < 2:
             self.throw(token.starts_at,
-                       "Syntax Error : Too many in keywords.")
+                       "Syntax Error : Invalid for loop statement.")
         star_targets = left_sub_stmts[0]
-        star_targets_tokens = len(star_targets)
-        star_expressions = left_sub_stmts[star_targets_tokens:]
+        star_expressions = left_sub_stmts[1]
+        i = 2
+        while i < len(left_sub_stmts):
+            star_expressions.extend(left_sub_stmts[i])
         self.parse_star_target_multiple(star_targets)
         self.parse_star_expression(star_expressions)
 
