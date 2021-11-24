@@ -595,10 +595,10 @@ class Parser:
                             return (False, token)
                         else:
                             operator = operatorstack.pop()
-                            while(self.isUnaryOperator(operator)):
+                            while(len(operatorstack) > 0 and self.isUnaryOperator(operator)):
                                 operatorprev = operator
                                 operator = operatorstack.pop()
-                                if(self.isUnaryOperator(operator) and (operatorprev.type != operator.type)):
+                                if(self.isUnaryOperator(operator) and self.isUnaryOperator(operatorprev) and (operatorprev.type != operator.type)):
                                     return (False, token)
 
                 elif(previoustoken != None and token.type == Punctuation.ACCESSOR and self.isAtom(previoustoken)):
@@ -620,10 +620,10 @@ class Parser:
                             return (False, token)
                         else:
                             operator = operatorstack.pop()
-                            while(self.isUnaryOperator(operator)):
+                            while(len(operatorstack) > 0 and self.isUnaryOperator(operator)):
                                 operatorprev = operator
                                 operator = operatorstack.pop()
-                                if(self.isUnaryOperator(operator) and (operatorprev.type != operator.type)):
+                                if(self.isUnaryOperator(operator) and self.isUnaryOperator(operatorprev) and (operatorprev.type != operator.type)):
                                     return (False, token)
 
                 elif(token.type == Punctuation.PARENTHESIS_OPEN):
@@ -691,17 +691,21 @@ class Parser:
                                             temp[1])
                                         if(not validity1[0] or not validity2[0]):
                                             return (False, token)
-                    # elif(previoustoken == None or not(self.isAtom(previoustoken))):
-                    #     #self.parse_arguments(argstoken)
-                    #     validity = self.parse_star_expression(argstoken)
-                    #     if(not validity[0]):
-                    #         return (False, token)
-                    # elif(self.isAtom(previoustoken)):
-                    #     #self.parse_arguments(argstoken)
-                    #     validity = self.parse_star_expression(argstoken)
-                    #     if(not validity[0]):
-                    #         self.parse_slices(argstoken)
                     previoustoken = token
+                    if(len(numberstack) == 0):
+                        numberstack.append(token)
+                        if(len(operatorstack) > 0 and self.isUnaryOperator(operatorstack[-1])):
+                            operatorstack.pop()
+                    else:
+                        if(len(operatorstack) == 0 and len(numberstack) > 0):
+                            return (False, token)
+                        else:
+                            operator = operatorstack.pop()
+                            while(len(operatorstack) > 0 and self.isUnaryOperator(operator)):
+                                operatorprev = operator
+                                operator = operatorstack.pop()
+                                if(self.isUnaryOperator(operator) and self.isUnaryOperator(operatorprev) and (operatorprev.type != operator.type)):
+                                    return (False, token)
                     continue
 
                 elif(token.type == Punctuation.SQUARE_BRACKET_OPEN):
@@ -733,6 +737,20 @@ class Parser:
                         if(not validity[0]):
                             self.parse_slices(argstoken)
                     previoustoken = token
+                    if(len(numberstack) == 0):
+                        numberstack.append(token)
+                        if(len(operatorstack) > 0 and self.isUnaryOperator(operatorstack[-1])):
+                            operatorstack.pop()
+                    else:
+                        if(len(operatorstack) == 0 and len(numberstack) > 0):
+                            return (False, token)
+                        else:
+                            operator = operatorstack.pop()
+                            while(len(operatorstack) > 0 and self.isUnaryOperator(operator)):
+                                operatorprev = operator
+                                operator = operatorstack.pop()
+                                if(self.isUnaryOperator(operator) and self.isUnaryOperator(operatorprev) and (operatorprev.type != operator.type)):
+                                    return (False, token)
                     continue
 
                 elif(token.type == Punctuation.PARENTHESIS_CLOSE):
@@ -750,6 +768,9 @@ class Parser:
                         return (False, token)
                     else:
                         bracketstack.pop()
+                elif(token.type == Keyword.IN and previoustoken != None and previoustoken.type == Keyword.NOT):
+                    if(len(numberstack) == 0):
+                        return (False, token)
                 elif(self.isBinaryOperator(token)):
                     if(len(numberstack) == 0):
                         return (False, token)
@@ -831,7 +852,7 @@ class Parser:
             return False
 
     def isBinaryOperator(self, token):
-        if(token.type == Keyword.AND or token.type == Keyword.OR):
+        if(token.type == Keyword.AND or token.type == Keyword.OR or token.type == Keyword.IN or token.type == Keyword.IS):
             return True
 
         if(token.type == Operator.EQUAL or token.type == Operator.NOT_EQUAL or token.type == Operator.LESS_EQUAL or
