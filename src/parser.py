@@ -152,8 +152,14 @@ class Parser:
             if self.index >= j:
                 break
             self.next_statement()
-        self.index = j + self.block_stack
-        self.block_stack -= 1
+        self.index = j + 1
+        while self.tokens[self.index].type == Indentation.DEDENT:
+            if self.block_stack > 0:
+                self.block_stack -= 1
+            else:
+                self.throw(self.tokens[self.index].starts_at,
+                           "Indentation Error : Unexpected end of block.")
+            self.index += 1
 
     def parse_simple_statement(self, statement):
         # ENDMARKER only statement
