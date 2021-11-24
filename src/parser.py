@@ -22,8 +22,6 @@ class Parser:
                 self.lines.append(line)
         tokenizer = Tokenizer()
         self.tokens = tokenizer.tokenize(filename)
-        # for token in self.tokens:
-        #     print(token.type.name)
 
         self.parse_indents()
 
@@ -33,15 +31,6 @@ class Parser:
             self.next_statement()
         self.statement[-1].type = Literal.NEWLINE
         self.parse_simple_statement(self.statement)
-
-        # self.next_statement()
-        # while(self.index < len(self.tokens)-1):
-        #     # print(len(self.tokens))
-        #     # Dimulai dari token ke 0 di statement
-        #     # print(self.parse_expression(0))
-        #     self.parse_simple_statement(self.statement)
-        #     self.next_statement()
-        # print(self.parse_expression(0))
 
     def next_statement(self):
         # type: () -> None
@@ -53,11 +42,8 @@ class Parser:
         self.statement = []
         last_token = None
         token = self.tokens[self.index]
-        # print("Next statement :")
         end_with_dedent = False
         while token.type not in [Literal.NEWLINE, Literal.ENDMARKER] or len(bracket_stack) != 0 or expect_dedent != 0:
-            # print(
-            #     f"({token.starts_at[0] + 1}:{token.starts_at[1] + 1}) {token.type}")
             if expect_indent and type(token.type) != Indentation:
                 self.throw(token.starts_at,
                            "Indentation Error : Expected indentation.")
@@ -113,7 +99,6 @@ class Parser:
         if indent_stack != 0:
             self.throw(token.starts_at,
                        "Indentation Error : Found indentation in a single statement.")
-        # print()
         self.condense_statement()
 
     def condense_statement(self):
@@ -158,23 +143,10 @@ class Parser:
     def parse_block(self, block):
         j = self.index - 1
         self.index = j - len(self.block) + 2
-        # print(f"{self.index}/{j}")
-        # print(f"{self.index} : {self.tokens[self.index].type}")
         self.next_statement()
         while self.index < j:
-            # if self.statement[0].type == Indentation.INDENT:
-            #     indent_stack += 1
-            #     past = True
-            # elif self.statement[0].type == Indentation.DEDENT:
-            #     while self.statement[0].type == Indentation.DEDENT:
-            #         indent_stack -= 1
-            #         self.statement = self.statement[1:]
             self.statement = self.trim(self.statement)
-            # for x in self.statement:
-            #     print(x.type)
-            # print()
             self.parse_simple_statement(self.statement)
-            # print(f"{self.index}/{j}")
             if self.index >= j:
                 break
             self.next_statement()
@@ -185,13 +157,7 @@ class Parser:
         if len(statement) == 0 or len(statement) == 1 and statement[0].type == Literal.ENDMARKER:
             return
 
-        # for token in statement:
-        #     print(token.type)
-        # print()
-
         first_token = statement[0]      # type: Token
-        # TODO: Cek setiap token awal yang mungkin sebagai
-        # simple_statement
 
         match first_token.type:
             # Ignore empty statement
@@ -256,10 +222,6 @@ class Parser:
                 if (len(self.func_stack) == 0):
                     self.throw(first_token.starts_at,
                                "Syntax Error : return keyword must be place inside a function.")
-            # Assignment/expression statement
-            # case Literal.NAME:
-            # Assignment dan expression dipindahkan ke case default
-            # Function definition statement
             case Keyword.DEF:
                 self.func_stack.append(Keyword.DEF)
                 statement = statement[1:]
@@ -295,8 +257,6 @@ class Parser:
                 except:
                     self.try_stack -= 1
                     self.parse_expression(statement)
-                # self.throw(first_token.starts_at,
-                #           "Syntax Error : Unexpected statement first token.")
 
     def whitespace_only_until(self, index):
         statement = self.statement
@@ -772,10 +732,6 @@ class Parser:
             return (False, token)
 
         subexprs = self.split_one_level(statement[i:], Punctuation.COMMA)
-        # for i in range(len(subexprs)):
-        #     print(f"Indeks {i}")
-        #     for j in range(len(subexprs[i])):
-        #         print(subexprs[i][j].type.name)
         for j in range(len(subexprs)):
             i = 0
             n = len(subexprs[j])
@@ -817,7 +773,6 @@ class Parser:
                         i += 1
                     if(i == n or token.type != Literal.NAME):
                         return (False, token)
-                    #subexprs[j][i+1].type == Literal.NAME
                     numberstack.pop()
                     if(len(numberstack) == 0):
                         numberstack.append(token)
@@ -857,7 +812,6 @@ class Parser:
                     else:
                         return (False, token)
                 elif(token.type == Punctuation.BRACKET_OPEN):
-                    # bracketstack.append(Punctuation.BRACKET_OPEN)
                     argstoken = []
                     bracketopencnt = 1
                     token = subexprs[j][i]
@@ -871,8 +825,6 @@ class Parser:
                             bracketopencnt -= 1
                         i += 1
                     argstoken.pop()
-                    # for k in range(len(argstoken)):
-                    #       print(argstoken[k].type.name)
                     if(self.isStatementWhitespace(argstoken)):
                         pass
                     else:
@@ -930,17 +882,13 @@ class Parser:
                             bracketopencnt -= 1
                         i += 1
                     argstoken.pop()
-                    # for k in range(len(argstoken)):
-                    #      print(argstoken[k].type.name)
                     if(self.isStatementWhitespace(argstoken)):
                         pass
                     elif(previoustoken == None or not(self.isAtom(previoustoken))):
-                        # self.parse_arguments(argstoken)
                         validity = self.parse_star_expression(argstoken)
                         if(not validity[0]):
                             return (False, token)
                     elif(self.isAtom(previoustoken)):
-                        # self.parse_arguments(argstoken)
                         validity = self.parse_star_expression(argstoken)
                         if(not validity[0]):
                             self.parse_slices(argstoken)
@@ -1003,20 +951,6 @@ class Parser:
         if(not isvalid):
             self.throw(lasttoken.starts_at,
                        "Syntax Error : Invalid expression.")
-
-    # def parse_complex_atom(self, statement):
-    #     # Return (True/False, perubahan indeks token)
-    #     i = 0
-    #     n = len(statement)
-    #     beginaksesor = True
-    #     prevtoken = None
-    #     while(i < n):
-    #         token = statement[i]
-    #         if(token.type == Literal.WHITESPACE or token.type == Literal.NEWLINE):
-    #             pass
-    #         elif(token.type == Punctuation.ACCESSOR):
-
-    #         i += 1
 
     def parse_slices(self, statement):
         subexprs = self.split_one_level(statement, Punctuation.COLON)
@@ -1483,17 +1417,12 @@ class Parser:
             elif (left[1].type == Punctuation.PARENTHESIS_OPEN):
                 params_stmt = left[2:-1]
                 self.parse_params(params_stmt)
-                # print("finish parse params")
 
         right = sub_stmts[1]
         self.next_block()
         self.parse_block(right)
-        # print("finish parse function_def")
 
     def parse_params(self, statement):
-        # TODO recheck algorithm
-
-        # pisah pake koma, trus cek =, ke kanan harus ada = semua
         sub_stmt = self.split(statement, Punctuation.COMMA)
         equalSign = False
         for stmt in sub_stmt:
@@ -1520,8 +1449,6 @@ class Parser:
                     self.throw(new_stmt[0][0].starts_at,
                                "Syntax Error : Invalid parameter.")
 
-        # print("finish parse params")
-
     def parse_class_def(self, statement):
         # Parse grammar class_def
         # NAME ['(' [arguments] ')' ] ':' block
@@ -1531,8 +1458,6 @@ class Parser:
         # [2] Cek di sub_stmts[0] ada parenthesis open dan close
         # [3] Kalo ada params, parse_params
         # [4] parse_block
-
-        # TODO : recheck algorithm
 
         sub_stmts = self.split(statement, Punctuation.COLON)
         if (len(sub_stmts) != 2):
@@ -1554,17 +1479,14 @@ class Parser:
                 arguments_stmt = left[2:-1]
                 if (len(arguments_stmt) != 0):
                     self.parse_arguments(arguments_stmt)
-                    # print("finish parse arguments")
 
         right = sub_stmts[1]
         self.next_block()
         self.parse_block(right)
-        # print("finish parse class")
 
     def parse_arguments(self, statement):
         # args [','] &')'
 
-        # TODO : recheck algorithm
         new_stmt = self.trim(statement)
         if len(new_stmt) == 0:
             return
@@ -1581,7 +1503,6 @@ class Parser:
         # ','.(starred_expression | ( assignment_expression | expression !':=') !'=')+ [',' kwargs ]
         # kwargs
 
-        # TODO : bikin algoritma
         sub_stmt = self.split_args(statement)
         equalSign = False
         for stmt in sub_stmt:
@@ -1614,8 +1535,6 @@ class Parser:
         # 'with' '(' ','.with_item+ ','? ')' ':' block
         # 'with' ','.with_item+ ':' block
 
-        # TODO : recheck algorithm
-
         sub_stmts = self.split(statement, Punctuation.COLON)
         if (len(sub_stmts) != 2):
             self.throw(sub_stmts[0][0].starts_at,
@@ -1636,13 +1555,11 @@ class Parser:
         # parse block
         self.next_block()
         self.parse_block(sub_stmts[-1])
-        # print("finish parse with_stmt")
 
     def parse_with_item(self, statement):
         # expression 'as' star_target
         # expression
 
-        # TODO : recheck algorithm
         sub_stmt = self.split(statement, Keyword.AS)
         if (len(sub_stmt) == 2):
             # masuk ke cabang pertama
@@ -1654,8 +1571,6 @@ class Parser:
         else:
             self.throw(sub_stmt[0][0].starts_at,
                        "Syntax Error : Invalid statement.")
-
-        # print("finish parse with item")
 
     def parse_if_stmt(self, statement):
         token = statement[0]
@@ -1856,7 +1771,6 @@ class Parser:
 
     def throw(self, at, message):
         if self.try_stack == 0:
-            #raise SyntaxError("Error di sini")
             i = 0
             l = len(self.tokens)
             while self.tokens[i].starts_at[0] != at[0]:
